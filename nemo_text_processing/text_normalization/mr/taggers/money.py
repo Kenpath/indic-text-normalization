@@ -15,26 +15,19 @@
 import pynini
 from pynini.lib import pynutil
 
-major_minor_currencies = {
-    "रुपये": "पैसे",
-    "पाउंड": "पेन्स",
-    "वॉन": "जिओन",
-    "डॉलर": "सेंट",
-    "लीरा": "कुरस",
-    "टका": "पैसे",
-    "येन": "सेन",
-    "नाइरा": "कोबो",
-    "यूरो": "सेंट",
-}
-from nemo_text_processing.text_normalization.mr.graph_utils import NEMO_NOT_QUOTE, NEMO_SPACE, GraphFst
+from nemo_text_processing.text_normalization.mr.graph_utils import GraphFst, insert_space
+from nemo_text_processing.text_normalization.mr.utils import get_abs_path
+from nemo_text_processing.text_normalization.mr.taggers.decimal import quantities
+currency_graph = pynini.string_file(get_abs_path("data/money/currency.tsv"))
 
 
 class MoneyFst(GraphFst):
     """
-    Finite state transducer for verbalizing money, e.g.
-        money { integer_part: "बारा" currency_maj: "रुपये" } -> बारा रुपये
-        money { integer_part: "बारा" currency_maj: "रुपये" fractional_part: "पन्नास" currency_min: "centiles" } -> बारा रुपये पन्नास पैसे
-        money { currency_maj: "रुपये" integer_part: "शून्य" fractional_part: "पन्नास" currency_min: "centiles" } -> पन्नास पैसे
+    Finite state transducer for classifying money, suppletive aware, e.g.
+        ₹५० -> money { money { currency_maj: "रुपये" integer_part: "पन्नास" }
+        ₹५०.५० -> money { currency_maj: "रुपये" integer_part: "पन्नास" fractional_part: "पन्नास" currency_min: "centiles" }
+        ₹०.५० -> money { currency_maj: "रुपये" integer_part: "शून्य" fractional_part: "पन्नास" currency_min: "centiles" }
+    Note that the 'centiles' string is a placeholder to handle by the verbalizer by applying the corresponding minor currency denomination
 
     Args:
         cardinal: CardinalFst
@@ -43,98 +36,37 @@ class MoneyFst(GraphFst):
             for False multiple transduction are generated (used for audio-based normalization)
     """
 
-    def __init__(self):
-        super().__init__(name="money", kind="verbalize")
+    def __init__(self, cardinal: GraphFst):
+        super().__init__(name="money", kind="classify")
 
-        currency_major = pynutil.delete('currency_maj: "') + pynini.closure(NEMO_NOT_QUOTE, 1) + pynutil.delete('"')
+        cardinal_graph = cardinal.final_graph
 
-        integer_part = pynutil.delete('integer_part: "') + pynini.closure(NEMO_NOT_QUOTE, 1) + pynutil.delete('"')
-
-        fractional_part = (
-            pynutil.delete('fractional_part: "') + pynini.closure(NEMO_NOT_QUOTE, 1) + pynutil.delete('"')
+        optional_graph_negative = pynini.closure(
+            pynutil.insert("negative: ") + pynini.cross("-", "\"true\"") + insert_space,
+            0,
+            1,
         )
-        quantity_part = (
-            pynutil.delete('quantity: "') + pynini.closure(NEMO_NOT_QUOTE, 1) + pynutil.delete('"')
-        )
-        
-        # Handles major denominations only
-        graph_major_only = integer_part + pynini.accep(NEMO_SPACE) + currency_major
+        currency_major = pynutil.insert('currency_maj: "') + currency_graph + pynutil.insert('"')
+        integer = pynutil.insert('integer_part: "') + cardinal_graph + pynutil.insert('"')
+        fraction = pynutil.insert('fractional_part: "') + cardinal_graph + pynutil.insert('"')
+        currency_minor = pynutil.insert('currency_min: "') + pynutil.insert("centiles") + pynutil.insert('"')
+        quantity = pynutil.insert('quantity:"') + quantities + pynutil.insert('"')
+        graph_major_only = optional_graph_negative + currency_major + insert_space + integer
 
-        # Handles quantity with currency: ₹१ लाख -> एक लाख रुपये
-        # Tagger creates: currency_maj + integer_part + quantity
-        # We need to output: integer_part + quantity + currency_maj
-        # Solution: Read currency, integer, quantity in order, output in correct order
-        graph_with_quantity = (
-            pynutil.delete('currency_maj: "')
-            + currency_major  # Read and keep currency value
-            + pynutil.delete('"')
-            + pynutil.delete(NEMO_SPACE)
-            + integer_part  # Read and output integer
-            + pynini.accep(NEMO_SPACE)
-            + quantity_part  # Read and output quantity
-            + pynini.accep(NEMO_SPACE)
-            + currency_major  # Output currency (same value we read)
+        graph_major_and_minor = (
+            optional_graph_negative
+            + currency_major
+            + insert_space
+            + integer
+            + pynini.cross(".", " ")
+            + fraction
+            + insert_space
+            + currency_minor
         )
 
-        graph_decimal_with_quantity = (
-            pynutil.delete('currency_maj: "')
-            + currency_major  # Read currency
-            + pynutil.delete('"')
-            + pynutil.delete(NEMO_SPACE)
-            + integer_part  # Read integer
-            + pynutil.delete(NEMO_SPACE)
-            + fractional_part  # Read fractional
-            + pynutil.delete(NEMO_SPACE)
-            + quantity_part  # Read quantity
-            + pynini.accep(NEMO_SPACE)
-            + currency_major  # Output currency
-        )
+        graph_currencies = graph_major_only | graph_major_and_minor
 
-        # Handles both major and minor denominations
-        major_minor_graphs = []
+        graph = graph_currencies.optimize()
+        final_graph = self.add_tokens(graph)
+        self.fst = final_graph
 
-        # Handles minor denominations only
-        minor_graphs = []
-
-        # Logic for handling minor denominations
-        for major, minor in major_minor_currencies.items():
-            graph_major = pynutil.delete('currency_maj: "') + pynini.accep(major) + pynutil.delete('"')
-            graph_minor = pynutil.delete('currency_min: "') + pynini.cross("centiles", minor) + pynutil.delete('"')
-            graph_major_minor_partial = (
-                integer_part
-                + pynini.accep(NEMO_SPACE)
-                + graph_major
-                + pynini.accep(NEMO_SPACE)
-                + fractional_part
-                + pynini.accep(NEMO_SPACE)
-                + graph_minor
-            )
-            major_minor_graphs.append(graph_major_minor_partial)
-
-            graph_minor_partial = (
-                pynutil.delete('integer_part: "शून्य"')
-                + pynutil.delete(NEMO_SPACE)
-                + pynutil.delete('currency_maj: "')
-                + pynutil.delete(major)
-                + pynutil.delete('"')
-                + pynutil.delete(NEMO_SPACE)
-                + fractional_part
-                + pynini.accep(NEMO_SPACE)
-                + graph_minor
-            )
-            minor_graphs.append(graph_minor_partial)
-
-        graph_major_minor = pynini.union(*major_minor_graphs)
-        graph_minor_only = pynini.union(*minor_graphs)
-
-        graph = (
-            pynutil.add_weight(graph_with_quantity, -0.1)  # Higher priority
-            | pynutil.add_weight(graph_decimal_with_quantity, -0.1)  # Higher priority
-            | graph_major_only
-            | graph_major_minor
-            | pynutil.add_weight(graph_minor_only, -0.1)
-        )
-        
-
-        delete_tokens = self.delete_tokens(graph)
-        self.fst = delete_tokens.optimize()
