@@ -103,7 +103,7 @@ class Normalizer:
 
     def __init__(
         self,
-        input_case: str,
+        input_case: str = 'cased',
         lang: str = 'en',
         deterministic: bool = True,
         cache_dir: str = None,
