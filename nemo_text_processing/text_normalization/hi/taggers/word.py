@@ -47,9 +47,7 @@ class WordFst(GraphFst):
 
         # Include punctuation in the graph
         punct = punctuation.graph
-        # Project to input and ensure it's an unweighted epsilon-free deterministic acceptor
-        punct_input = punct.project("input").rmepsilon().determinize()
-        default_graph = pynini.closure(pynini.difference(NEMO_NOT_SPACE, punct_input), 1)
+        default_graph = pynini.closure(pynini.difference(NEMO_NOT_SPACE, punct.project("input")), 1)
         symbols_to_exclude = (pynini.union("$", "€", "₩", "£", "¥", "#", "%") | punct).optimize()
 
         # Use HINDI_CHAR in the graph
