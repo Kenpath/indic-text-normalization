@@ -9,16 +9,23 @@ A production-ready, comprehensive Python package for text normalization across m
 ## Supported Languages
 
 - **Hindi** (hi) - हिन्दी
-- **Tamil** (ta) - தமிழ்
-- **Malayalam** (ma) - മലയാളം
-- **Gujarati** (gu) - ગુજરાતી
-- **Assamese** (ase) - অসমীয়া
-- **Maithili** (mai) - मैथिली
-- **Magadhi** (mag) - मगही
+- **Bengali** (bn) - বাংলা
+- **Marathi** (mr) - मराठी
+- **Telugu** (te) - తెలుగు
+- **Kannada** (kn) - ಕನ್ನಡ
+- **Bhojpuri** (bho) - भोजपुरी
+- **Magahi** (mag) - मगही
 - **Chhattisgarhi** (hne) - छत्तीसगढ़ी
+- **Maithili** (mai) - मैथिली
+- **Assamese** (ase) - অসমীয়া
 - **Bodo** (bo) - बड़ो
 - **Dogri** (do) - डोगरी
+- **Gujarati** (gu) - ગુજરાતી
+- **Malayalam** (ma) - മലയാളം
 - **Punjabi** (pu) - ਪੰਜਾਬੀ
+- **Tamil** (ta) - தமிழ்
+- **English (Indian)** (en) - English
+- **Nepali** (ne) - नेपाली
 - **Sanskrit** (sa) - संस्कृत
 
 ## Features
