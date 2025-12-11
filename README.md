@@ -1,90 +1,180 @@
-*NeMo Text Processing*
-==========================
+# Indic Text Normalization
 
-Introduction
-------------
+A comprehensive Python package for text normalization across multiple Indian languages, built on Weighted Finite-State Transducers (WFST) using Pynini.
 
-`indic-text-normalization` is a Python package for text normalization.
+## Overview
 
-Getting help
---------------
-If you have a question which is not answered in the [Github discussions](https://github.com/NVIDIA/NeMo-text-processing/discussions), encounter a bug or have a feature request, please create a [Github issue](https://github.com/NVIDIA/NeMo-text-processing/issues). We also welcome you to directly open a [pull request](https://github.com/NVIDIA/NeMo-text-processing/pulls) to fix a bug or add a feature.
+`indic-text-normalization` provides robust text normalization capabilities for converting written text into spoken form across various Indian languages. The package handles numbers, dates, times, measurements, currency, telephone numbers, and other semiotic classes with language-specific rules and native terminology.
 
+## Supported Languages
 
-Installation
-------------
+- **Hindi** (hi) - हिन्दी
+- **Tamil** (ta) - தமிழ்
+- **Malayalam** (ma) - മലയാളം
+- **Gujarati** (gu) - ગુજરાતી
+- **Assamese** (ase) - অসমীয়া
+- **Maithili** (mai) - मैथिली
+- **Magadhi** (mag) - मगही
+- **Chhattisgarhi** (hne) - छत्तीसगढ़ी
+- **Bodo** (bo) - बड़ो
+- **Dogri** (do) - डोगरी
+- **Punjabi** (pu) - ਪੰਜਾਬੀ
+- **Sanskrit** (sa) - संस्कृत
 
-### Conda virtual environment
+## Features
 
-We recommend setting up a fresh Conda environment to install NeMo-text-processing.
+### Semiotic Classes
+
+Each language module supports normalization of:
+
+- **Cardinal Numbers** - Both native script and Arabic numerals
+- **Ordinal Numbers** - First, second, third, etc.
+- **Decimal Numbers** - Decimal point verbalization
+- **Fractions** - Proper fraction handling
+- **Date** - Multiple date formats (DD/MM/YYYY, YYYY-MM-DD, etc.)
+- **Time** - 12-hour and 24-hour formats
+- **Telephone Numbers** - Digit-by-digit verbalization
+- **Measurements** - Units with proper verbalization
+- **Money** - Currency symbols and amounts
+- **Electronic** - Email addresses, URLs, hashtags
+- **Roman Numerals** - Conversion to spoken form
+- **Abbreviations** - Common abbreviations expansion
+- **Whitelist** - Custom word mappings
+
+## Installation
+
+For detailed installation instructions including platform-specific setup, troubleshooting, and multiple installation methods, please refer to the **[Setup Guide](setup.md)**.
+
+**Quick Start:**
+```bash
+conda create -n indic_tn python=3.10
+conda activate indic_tn
+conda install -c conda-forge pynini=2.1.6.post1
+pip install -e .
+```
+
+## Usage
+
+### Basic Usage
+
+```python
+from indic_text_normalization import Normalizer
+
+# Initialize normalizer for a specific language
+normalizer = Normalizer(input_case='cased', lang='hi')
+
+# Normalize text
+text = "मैं 25 साल का हूं और मेरा फोन नंबर 9876543210 है।"
+normalized = normalizer.normalize(text)
+print(normalized)
+# Output: मैं पच्चीस साल का हूं और मेरा फोन नंबर नौ आठ सात छह पांच चार तीन दो एक शून्य है।
+```
+
+### Language-Specific Examples
+
+**Tamil:**
+```python
+normalizer = Normalizer(input_case='cased', lang='ta')
+text = "எனக்கு 1,234 ரூபாய் வேண்டும்"
+normalized = normalizer.normalize(text)
+```
+
+**Malayalam:**
+```python
+normalizer = Normalizer(input_case='cased', lang='ma')
+text = "സമയം 10:30 ആണ്"
+normalized = normalizer.normalize(text)
+```
+
+**Gujarati:**
+```python
+normalizer = Normalizer(input_case='cased', lang='gu')
+text = "તારીખ 15/08/2024 છે"
+normalized = normalizer.normalize(text)
+```
+
+## Project Structure
+
+```
+indic-text-normalization/
+├── indic_text_normalization/
+│   ├── hi/          # Hindi
+│   ├── ta/          # Tamil
+│   ├── ma/          # Malayalam
+│   ├── gu/          # Gujarati
+│   ├── ase/         # Assamese
+│   ├── mai/         # Maithili
+│   ├── mag/         # Magadhi
+│   ├── hne/         # Chhattisgarhi
+│   ├── bo/          # Bodo
+│   ├── do/          # Dogri
+│   ├── pu/          # Punjabi
+│   └── sa/          # Sanskrit
+├── tests/           # Test notebooks and scripts
+└── README.md
+```
+
+Each language directory contains:
+- `taggers/` - FST-based taggers for each semiotic class
+- `verbalizers/` - FST-based verbalizers for converting tagged text to spoken form
+- `data/` - TSV files with language-specific terminology
+- `tokenize_and_classify.py` - Main classification logic
+
+## Testing
+
+Test notebooks are available for each language:
 
 ```bash
-conda create --name nemo_tn python==3.10
-conda activate nemo_tn
+# Run Jupyter notebook
+jupyter notebook tests/test_hindi.ipynb
+jupyter notebook tests/test_tamil.ipynb
+# ... etc.
 ```
 
-###  Pip
+## Development
 
-Use this installation mode if you want the latest released version.
-```
-pip install nemo_text_processing
-```
+### Adding a New Language
 
-**_NOTE:_** This should work on any Linux OS with x86_64. Pip installation on MacOS and Windows are not supported due to the dependency [Pynini](https://www.openfst.org/twiki/bin/view/GRM/Pynini). On a platform other than Linux x86_64, installing from Pip tries to compile Pynini from scratch, and requires OpenFst headers and libraries to be in the expected place. So if it's working for you, it's because you happen to have installed OpenFst in the right way in the right place. So if you want to Pip install Pynini on MacOS, you have to have pre-compiled and pre-installed OpenFst. The Pynini README for that version should tell you which version it needs and what `--enable-foo` flags to use.
-Instead, we recommend you to use conda-forge to install Pynini on MacOS or Windows:
-`conda install -c conda-forge pynini=2.1.6.post1`.
+1. Create a new directory under `indic_text_normalization/` with the language code
+2. Replicate the structure from an existing language (e.g., Hindi)
+3. Update all TSV data files with native terminology
+4. Modify taggers and verbalizers for language-specific rules
+5. Update `normalizer.py` to include the new language
+6. Create test cases
 
+### Contributing
 
-###  Pip from source
+Contributions are welcome! Please ensure:
+- All data uses authentic native terminology
+- Code follows existing patterns and structure
+- Test cases are provided for new features
+- Documentation is updated
 
-Use this installation mode if you want the a version from particular GitHub branch (e.g main).
+## Technical Details
 
-```
-pip install Cython
-python -m pip install git+https://github.com/NVIDIA/NeMo-text-processing.git@{BRANCH}#egg=nemo_text_processing
-```
+### WFST Architecture
 
+The normalization pipeline uses Weighted Finite-State Transducers (WFST) implemented with Pynini:
 
-### From source
+1. **Tokenization** - Input text is tokenized
+2. **Classification** - Each token is classified into semiotic classes
+3. **Verbalization** - Classified tokens are converted to spoken form
+4. **Post-processing** - Final cleanup and formatting
 
-Use this installation mode if you are contributing to NeMo-text-processing.
+### Digit Handling
 
-```
-git clone https://github.com/NVIDIA/NeMo-text-processing
-cd NeMo-text-processing
-./reinstall.sh
-```
+- **Arabic Digits** (0-9) - Converted to native script or verbalized directly
+- **Native Script Digits** - Devanagari (०-९), Tamil (௦-௯), etc.
+- **Mixed Input** - Handles both digit systems in the same text
 
-**_NOTE:_** If you only want the toolkit without additional conda-based dependencies, you may replace ``reinstall.sh`` with ``pip install -e .`` with the NeMo-text-processing root directory as your current working director.
+## License
 
+This project is licensed under the Apache 2.0 License.
 
-Contributing
-------------
-We welcome community contributions! Please refer to the [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+## Acknowledgments
 
+Built upon the foundation of NVIDIA NeMo Text Processing, adapted and extended for comprehensive Indic language support with authentic native terminology and language-specific normalization rules.
 
+## Support
 
-Citation
---------
-
-```
-@inproceedings{zhang21ja_interspeech,
-  author={Yang Zhang and Evelina Bakhturina and Boris Ginsburg},
-  title={{NeMo (Inverse) Text Normalization: From Development to Production}},
-  year=2021,
-  booktitle={Proc. Interspeech 2021},
-  pages={4857--4859}
-}
-
-@inproceedings{bakhturina22_interspeech,
-  author={Evelina Bakhturina and Yang Zhang and Boris Ginsburg},
-  title={{Shallow Fusion of Weighted Finite-State Transducer and Language Model for
-Text Normalization}},
-  year=2022,
-  booktitle={Proc. Interspeech 2022}
-}
-```
-
-License
--------
-NeMo-text-processing is under [Apache 2.0 license](LICENSE).
+For questions, bug reports, or feature requests, please open an issue on the GitHub repository.
