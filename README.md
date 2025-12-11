@@ -1,10 +1,10 @@
 # Indic Text Normalization
 
-A comprehensive Python package for text normalization across multiple Indian languages, built on Weighted Finite-State Transducers (WFST) using Pynini.
+A production-ready, comprehensive Python package for text normalization across multiple Indian languages, built on Weighted Finite-State Transducers (WFST) using Pynini.
 
 ## Overview
 
-`indic-text-normalization` provides robust text normalization capabilities for converting written text into spoken form across various Indian languages. The package handles numbers, dates, times, measurements, currency, telephone numbers, and other semiotic classes with language-specific rules and native terminology.
+`indic-text-normalization` is a production-ready, WFST-based library that provides **deterministic, low-latency, and explainable** text normalization for **TTS, ASR, and NLP** pipelines, converting semiotic entities (numbers, dates, currency) into spoken form across 19 Indian languages.
 
 ## Supported Languages
 
