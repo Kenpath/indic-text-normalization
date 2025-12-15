@@ -53,12 +53,22 @@ Each language module supports normalization of:
 For detailed installation instructions including platform-specific setup, troubleshooting, and multiple installation methods, please refer to the **[Setup Guide](setup.md)**.
 
 **Quick Start:**
+
+### Using Conda
 ```bash
 conda create -n indic_tn python=3.10
 conda activate indic_tn
 conda install -c conda-forge pynini=2.1.6.post1
 pip install -e .
 ```
+
+### MacOS
+```bash
+brew install openfst
+CPLUS_INCLUDE_PATH=/opt/homebrew/include LIBRARY_PATH=/opt/homebrew/lib pip install pynini
+pip install -e .
+```
+
 
 ## Usage
 
