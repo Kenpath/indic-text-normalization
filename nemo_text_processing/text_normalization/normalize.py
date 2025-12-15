@@ -178,9 +178,9 @@ class Normalizer:
         elif lang == 'ma':  # Malayalam
             from nemo_text_processing.text_normalization.ma.taggers.tokenize_and_classify import ClassifyFst
             from nemo_text_processing.text_normalization.ma.verbalizers.verbalize_final import VerbalizeFinalFst
-        elif lang == 'Pu':  # Punjabi
-            from nemo_text_processing.text_normalization.Pu.taggers.tokenize_and_classify import ClassifyFst
-            from nemo_text_processing.text_normalization.Pu.verbalizers.verbalize_final import VerbalizeFinalFst
+        elif lang == 'pu':  # Punjabi
+            from nemo_text_processing.text_normalization.pu.taggers.tokenize_and_classify import ClassifyFst
+            from nemo_text_processing.text_normalization.pu.verbalizers.verbalize_final import VerbalizeFinalFst
         elif lang == 'ne':  # Nepali
             from nemo_text_processing.text_normalization.ne.taggers.tokenize_and_classify import ClassifyFst
             from nemo_text_processing.text_normalization.ne.verbalizers.verbalize_final import VerbalizeFinalFst
@@ -729,7 +729,7 @@ def parse_args():
     parser.add_argument(
         "--language",
         help="language",
-        choices=["en", "hi", "kn", "bn", "mr", "bho", "cg", "mag", "mai", "ta", "te", "gu", "ase", "bo", "do", "ma", "Pu", "ne", "sa"],
+        choices=["en", "hi", "kn", "bn", "mr", "bho", "cg", "mag", "mai", "ta", "te", "gu", "ase", "bo", "do", "ma", "pu", "ne", "sa"],
         default="en",
         type=str,
     )
