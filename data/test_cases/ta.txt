@@ -1,0 +1,161 @@
+# Test cases for text normalization
+# Format: input|||category
+# The normalizer will generate outputs dynamically during testing
+#
+
+# BATCH (5 tests)
+123|||batch
+௧௨.௩௪|||batch
+௧௨:௩௦|||batch
+₹௧௦௦|||batch
+௧௫-௦௬-௨௦௨௪|||batch
+
+# CARDINAL (14 tests)
+155=100|||cardinal
+௧௨௩௪|||cardinal
+௧௨௩௪௫|||cardinal
+௧௨௩௪௫௬|||cardinal
+௧௨௩௪௫௬௭|||cardinal
+௧௨௩௪௫௬௭௮|||cardinal
+-௧௨௩|||cardinal
+-120|||cardinal
+௧௦௦௦|||cardinal
+௧௦௦௦௦௦|||cardinal
+௧௦௦௦௦௦௦௦௦ |||cardinal
+456|||cardinal
+9943206870|||cardinal
+1,234,566|||cardinal
+
+# DATE (10 tests)
+௦௧-௦௪-௨௦௨௪|||date
+௧௫-௦௬-௨௦௨௪|||date
+௨௦௨௪-௦௧-௧௫|||date
+௧௫/௦௬/௨௦௨௪|||date
+௦௪-௦௧-௨௦௨௪|||date
+01-04-2024|||date
+15-06-2024|||date
+2024-01-15|||date
+15/06/2024|||date
+04-01-2024|||date
+
+# DECIMAL (10 tests)
+௧௨.௩௪|||decimal
+௧௨௩.௪௫௬|||decimal
+௦.௫|||decimal
+-௧௨.௩௪|||decimal
+௧௨.௩௪௫௬|||decimal
+12.34|||decimal
+123.456|||decimal
+0.5|||decimal
+-12.34|||decimal
+96.3456|||decimal
+
+# FRACTION (10 tests)
+௩/௪|||fraction
+௧/௨|||fraction
+௧/௪|||fraction
+௧௨௩/௪|||fraction
+-௧/௨|||fraction
+3/4|||fraction
+1/2|||fraction
+1/4|||fraction
+23/4|||fraction
+-1/2|||fraction
+
+# MEASURE (10 tests)
+௧௨ kg|||measure
+௧௨௫ kg|||measure
+௧௦௦ m|||measure
+௫ km|||measure
+௧௨.௩௪ cm|||measure
+12 kg|||measure
+125 kg|||measure
+100 m|||measure
+5 km|||measure
+12.34 cm|||measure
+
+# MIXED (13 tests)
+இன்று ௧௫-௦௬-௨௦௨௪ அன்று ௧௨:௩௦ மணிக்கு கூட்டம் உள்ளது.|||mixed
+₹௧௦௦௦ மற்றும் ₹௫௦௦ சேர்த்தால் ₹௧௫௦௦ ஆகும்.|||mixed
+௧௨௩ கிலோகிராம் எடை மற்றும் ௫௦ கிலோமீட்டர் தூரம்.|||mixed
+௧வது இடம் மற்றும் ௨வது இடம்.|||mixed
+என்னுடைய மொபைல் எண்ணு 9876543210.|||mixed
+100|||mixed
+12:30|||mixed
+₹100|||mixed
+நான் 1 நாளில் 12:30 மணிக்கு ₹100 வாங்கினேன்|||mixed
+இன்று 3வது நாளில் ₹2500.50 செலவழித்தேன்|||mixed
+காலை 9:15 மணிக்கு 25 புத்தகங்கள் ₹500க்கு வாங்கினேன்|||mixed
+என் 2வது பிறந்தநாளில் ₹1000.75 பரிசு பெற்றேன்|||mixed
+மாலை 6:45 மணிக்கு 10.5 கிலோ அரிசி ₹350க்கு வாங்கினேன்|||mixed
+
+# MONEY (18 tests)
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹1000000|||money
+₹1050000|||money
+₹500|||money
+₹௧௦௦|||money
+₹௧௨௩௪|||money
+₹௫௦.௫௦|||money
+₹௦.௫௦|||money
+ரூ ௧௦௦௦|||money
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹1000|||money
+₹500|||money
+
+# ORDINAL (10 tests)
+௧வது|||ordinal
+௨வது|||ordinal
+௧௦வது|||ordinal
+௨௧வது|||ordinal
+௧௦௦வது|||ordinal
+1 kg|||ordinal
+2வது|||ordinal
+10வது|||ordinal
+21வது|||ordinal
+100வது|||ordinal
+
+# TELEPHONE (6 tests)
+என்னுடைய மொபைல் எண்ணு +௯௧௫௭௧௧௪௦௦௭|||telephone
++௯௧ ௯௨௧௦௫௧௫௬௦௬|||telephone
+என்னுடைய மொபைல் எண்ணு ௧௩௭௪௩௦௯௯௮௮|||telephone
+9943206292|||telephone
+9943206292|||telephone
+1,234,567|||telephone
+
+# TIME (22 tests)
+12:30|||time
+1:40|||time
+12:00|||time
+12:14|||time
+12:30:45|||time
+9:15|||time
+09:15|||time
+23:59|||time
+12:49|||time
+௧௨:௩௦|||time
+௧:௪௦|||time
+௧௨:௦௦|||time
+௧௨:௩௦:௪௫|||time
+௦௯:௧௫|||time
+௨௩:௫௯|||time
+12:30|||time
+1:40|||time
+12:00|||time
+12:30:45|||time
+09:15|||time
+23:59|||time
+9:15|||time
+
+# WHITELIST (5 tests)
+டா.|||whitelist
+புரொ.|||whitelist
+ஸ்ரீ|||whitelist
+கி.மீ.|||whitelist
+மீ.|||whitelist

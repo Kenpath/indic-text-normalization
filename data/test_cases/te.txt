@@ -1,0 +1,144 @@
+# Test cases for text normalization
+# Format: input|||category
+# The normalizer will generate outputs dynamically during testing
+#
+
+# BATCH (5 tests)
+123|||batch
+౧౨.౩౪|||batch
+౧౨:౩౦|||batch
+₹౧౦౦|||batch
+౧౫-౦౬-౨౦౨౪|||batch
+
+# CARDINAL (11 tests)
+155=100|||cardinal
+౧౨౩౪|||cardinal
+౧౨౩౪౫|||cardinal
+౧౨౩౪౫౬|||cardinal
+౧౨౩౪౫౬౭|||cardinal
+౧౨౩౪౫౬౭౮|||cardinal
+-౧౨౩|||cardinal
+-120|||cardinal
+౧౦౦౦|||cardinal
+౧౦౦౦౦౦|||cardinal
+౧౦౦౦౦౦౦౦౦ |||cardinal
+
+# DATE (10 tests)
+౦౧-౦౪-౨౦౨౪|||date
+౧౫-౦౬-౨౦౨౪|||date
+౨౦౨౪-౦౧-౧౫|||date
+౧౫/౦౬/౨౦౨౪|||date
+౦౪-౦౧-౨౦౨౪|||date
+01-04-2024|||date
+15-06-2024|||date
+2024-01-15|||date
+15/06/2024|||date
+04-01-2024|||date
+
+# DECIMAL (10 tests)
+౧౨.౩౪|||decimal
+౧౨౩.౪౫౬|||decimal
+౦.౫|||decimal
+-౧౨.౩౪|||decimal
+౧౨.౩౪౫౬|||decimal
+12.34|||decimal
+123.456|||decimal
+0.5|||decimal
+-12.34|||decimal
+12.3456|||decimal
+
+# FRACTION (10 tests)
+౩/౪|||fraction
+౧/౨|||fraction
+౧/౪|||fraction
+౧౨ ౩/౪|||fraction
+-౧/౨|||fraction
+3/4|||fraction
+1/2|||fraction
+1/4|||fraction
+12 3/4|||fraction
+-1/2|||fraction
+
+# MEASURE (10 tests)
+౧౨ kg|||measure
+౧౨౫ kg|||measure
+౧౦౦ m|||measure
+౫ km|||measure
+౧౨.౩౪ cm|||measure
+12 kg|||measure
+125 kg|||measure
+100 m|||measure
+5 km|||measure
+12.34 cm|||measure
+
+# MIXED (4 tests)
+ఈ రోజు ౧౫-౦౬-౨౦౨౪ న ౧౨:౩౦ గంటకు సభ ఉంది.|||mixed
+₹౧౦౦౦ మరియు ₹౫౦౦ కలిపి ₹౧౫౦౦ అవుతుంది.|||mixed
+౧౨౩ కిలోగ్రామ్ బరువు మరియు ౫౦ కిలోమీటర్ దూరం.|||mixed
+౧వ స్థానం మరియు ౨వ స్థానం.|||mixed
+
+# MONEY (18 tests)
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹1000000|||money
+₹1050000|||money
+₹500|||money
+₹౧౦౦|||money
+₹౧౨౩౪|||money
+₹౫౦.౫౦|||money
+₹౦.౫౦|||money
+రూ ౧౦౦౦|||money
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹1000|||money
+₹500|||money
+
+# ORDINAL (10 tests)
+౧వ|||ordinal
+౨వ|||ordinal
+౧౦వ|||ordinal
+౨౧వ|||ordinal
+౧౦౦వ|||ordinal
+1వ|||ordinal
+2వ|||ordinal
+10వ|||ordinal
+21వ|||ordinal
+100వ|||ordinal
+
+# TELEPHONE (4 tests)
++౯౧౫౭౧౧౪౦౦౭|||telephone
++౯౧ ౯౨౧౦౫౧౫౬౦౬|||telephone
+౧౩౭౪-౩౦౯౯౮౮|||telephone
+9943206292|||telephone
+
+# TIME (20 tests)
+12:30|||time
+1:40|||time
+12:00|||time
+12:30:45|||time
+09:15|||time
+23:59|||time
+9:15|||time
+౧౨:౩౦|||time
+౧:౪౦|||time
+౧౨:౦౦|||time
+౧౨:౩౦:౪౫|||time
+౦౯:౧౫|||time
+౨౩:౫౯|||time
+12:30|||time
+1:40|||time
+12:00|||time
+12:30:45|||time
+09:15|||time
+23:59|||time
+9:15|||time
+
+# WHITELIST (4 tests)
+డా.|||whitelist
+మిస్టర్|||whitelist
+మిసెస్|||whitelist
+మిస్|||whitelist

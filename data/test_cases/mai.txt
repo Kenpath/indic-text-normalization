@@ -1,0 +1,176 @@
+# Test cases for text normalization
+# Format: input|||category
+# The normalizer will generate outputs dynamically during testing
+#
+
+# BATCH (9 tests)
+123|||batch
+१२.३४|||batch
+१२:३०|||batch
+₹१००|||batch
+१५-०६-२०२४|||batch
+2|||batch
+दुइ|||batch
+२|||batch
+दुइ|||batch
+
+# CARDINAL (18 tests)
+123|||cardinal
+२३४|||cardinal
+1234|||cardinal
+१२३४|||cardinal
+12345|||cardinal
+१२३४५|||cardinal
+-123|||cardinal
+-२३४|||cardinal
+1000|||cardinal
+१०००|||cardinal
+100000|||cardinal
+१०००००|||cardinal
+10000000|||cardinal
+१०००००००|||cardinal
+2|||cardinal
+दुइ|||cardinal
+२|||cardinal
+दुइ|||cardinal
+
+# DATE (10 tests)
+01-04-2024|||date
+०१-०४-२०२४|||date
+15-06-2024|||date
+१५-०६-२०२४|||date
+2024-01-15|||date
+२०२४-०१-१५|||date
+15/06/2024|||date
+१५/०६/२०२४|||date
+04-01-2024|||date
+०४-०१-२०२४|||date
+
+# DECIMAL (10 tests)
+12.34|||decimal
+१२.३४|||decimal
+123.456|||decimal
+१२३.४५६|||decimal
+0.5|||decimal
+०.५|||decimal
+-12.34|||decimal
+-१२.३४|||decimal
+12.3456|||decimal
+१२.३४५६|||decimal
+
+# FRACTION (10 tests)
+3/4|||fraction
+३/४|||fraction
+1/2|||fraction
+१/२|||fraction
+1/4|||fraction
+१/४|||fraction
+12 3/4|||fraction
+१२ ३/४|||fraction
+-1/2|||fraction
+-१/२|||fraction
+
+# MAITHILI_SPECIFIC (18 tests)
+2|||maithili_specific
+दुइ|||maithili_specific
+२|||maithili_specific
+दुइ|||maithili_specific
+मैंने 2 रुपये खर्च किए।|||maithili_specific
+दुइ|||maithili_specific
+दुइ|||maithili_specific
+मैंने २ रुपये खर्च किए।|||maithili_specific
+दुइ|||maithili_specific
+दुइ|||maithili_specific
+02|||maithili_specific
+दुइ|||maithili_specific
+०२|||maithili_specific
+दुइ|||maithili_specific
+2वाँ|||maithili_specific
+दुइ|||maithili_specific
+२वाँ|||maithili_specific
+दुइ|||maithili_specific
+
+# MEASURE (10 tests)
+12 kg|||measure
+१२ kg|||measure
+125 kg|||measure
+१२५ kg|||measure
+100 m|||measure
+१०० m|||measure
+5 km|||measure
+५ km|||measure
+12.34 cm|||measure
+१२.३४ cm|||measure
+
+# MIXED (13 tests)
+मैंने 123 रुपये खर्च किए।|||mixed
+मैंने २ रुपये खर्च किए।|||mixed
+दुइ|||mixed
+आज 15 जनवरी 2024 है।|||mixed
+आज १५ जनवरी २०२४ है।|||mixed
+मेरा फोन नंबर 9876543210 है।|||mixed
+मेरा फोन नंबर ९८७६५४३२१० है।|||mixed
+मुझे 50 किलो चावल चाहिए।|||mixed
+मुझे ५० किलो चावल चाहिए।|||mixed
+समय 12:30 है।|||mixed
+समय १२:३० है।|||mixed
+₹1000 और ₹500 साथ ₹1500 होता है।|||mixed
+₹१००० और ₹५०० साथ ₹१५०० होता है।|||mixed
+
+# MONEY (12 tests)
+₹100|||money
+₹१००|||money
+₹1234|||money
+₹१२३४|||money
+₹50.50|||money
+₹५०.५०|||money
+₹0.50|||money
+₹०.५०|||money
+₹1000|||money
+₹१०००|||money
+₹500|||money
+₹५००|||money
+
+# ORDINAL (12 tests)
+1वाँ|||ordinal
+१वाँ|||ordinal
+2वाँ|||ordinal
+दुइ|||ordinal
+२वाँ|||ordinal
+दुइ|||ordinal
+10वाँ|||ordinal
+१०वाँ|||ordinal
+21वाँ|||ordinal
+२१वाँ|||ordinal
+100वाँ|||ordinal
+१००वाँ|||ordinal
+
+# TELEPHONE (6 tests)
+9876543210|||telephone
+९८७६५४३२१०|||telephone
+0123456789|||telephone
+०१२३४५६७८९|||telephone
++91 9876543210|||telephone
++९१ ९८७६५४३२१०|||telephone
+
+# TIME (13 tests)
+12:30|||time
+१२:३०|||time
+1:40|||time
+१:४०|||time
+12:00|||time
+१२:००|||time
+12:30:45|||time
+१२:३०:४५|||time
+09:15|||time
+०९:१५|||time
+23:59|||time
+२३:५९|||time
+9:15|||time
+
+# WHITELIST (5 tests)
+डॉ.|||whitelist
+प्रो.|||whitelist
+श्री|||whitelist
+कि.मी.|||whitelist
+मी.|||whitelist

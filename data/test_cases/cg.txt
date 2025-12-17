@@ -1,0 +1,132 @@
+# Test cases for text normalization
+# Format: input|||category
+# The normalizer will generate outputs dynamically during testing
+#
+
+# BATCH (5 tests)
+123|||batch
+१२.३४|||batch
+१२:३०|||batch
+₹१००|||batch
+१५-०६-२०२४|||batch
+
+# CARDINAL (11 tests)
+155|||cardinal
+१२३४|||cardinal
+१२३४५|||cardinal
+१२३४५६|||cardinal
+१२३४५६७|||cardinal
+१२३४५६७८|||cardinal
+-१२३|||cardinal
+-120|||cardinal
+१०००|||cardinal
+१258615|||cardinal
+१०००००००|||cardinal
+
+# DATE (10 tests)
+०१-०४-२०२४|||date
+१५-०६-२०२४|||date
+२०२४-०१-१५|||date
+१५/०६/२०२४|||date
+०४-०१-२०२४|||date
+01-04-2024|||date
+15-06-2024|||date
+2024-01-15|||date
+15/06/2024|||date
+04-01-2024|||date
+
+# DECIMAL (10 tests)
+१२.३४|||decimal
+१२३.४५६|||decimal
+०.५|||decimal
+-१२.३४|||decimal
+१२.३४५६|||decimal
+12.34|||decimal
+123.456|||decimal
+0.5|||decimal
+-12.34|||decimal
+12.3456|||decimal
+
+# FRACTION (10 tests)
+३/४|||fraction
+१/२|||fraction
+१/४|||fraction
+१२ ३/४|||fraction
+-१/२|||fraction
+3/4|||fraction
+1/2|||fraction
+1/4|||fraction
+12 3/4|||fraction
+-1/2|||fraction
+
+# MEASURE (11 tests)
+१२ kg|||measure
+१२५ kg|||measure
+१०० m|||measure
+५ km|||measure
+१२.३४ cm|||measure
+12 kg|||measure
+125 kg|||measure
+100 m|||measure
+5 km|||measure
+5.4 km|||measure
+12.34 cm|||measure
+
+# MIXED (4 tests)
+आज १५-०६-२०२४ के दिन १२:३० बजे मीटिंग है।|||mixed
+₹१००० और ₹५०० मिलाकर ₹१५०० होता है।|||mixed
+१२३ किलोग्राम वजन और ५० किलोमीटर दूरी।|||mixed
+१वाँ स्थान और २वाँ स्थान।|||mixed
+
+# MONEY (10 tests)
+₹१००|||money
+₹१२३४|||money
+₹५०.५०|||money
+₹०.५०|||money
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹10253468|||money
+₹500|||money
+
+# ORDINAL (10 tests)
+१वाँ|||ordinal
+२वाँ|||ordinal
+१०वाँ|||ordinal
+२१वाँ|||ordinal
+१००वाँ|||ordinal
+1वाँ|||ordinal
+2वाँ|||ordinal
+10वाँ|||ordinal
+21वाँ|||ordinal
+100वाँ|||ordinal
+
+# TELEPHONE (5 tests)
++९१ ५७११४००७|||telephone
++९१ ९२१०५१५६०६|||telephone
+१३७४-३०९९८८|||telephone
+9342012568|||telephone
+25648378|||telephone
+
+# TIME (13 tests)
+१२:३०|||time
+१:४०|||time
+१२:००|||time
+१२:३०:४५|||time
+०९:१५|||time
+२३:५९|||time
+12:30|||time
+1:40|||time
+12:00|||time
+12:30:45|||time
+09:15|||time
+23:59|||time
+9:15|||time
+
+# WHITELIST (5 tests)
+डॉ.|||whitelist
+प्रो.|||whitelist
+इं.|||whitelist
+ले.|||whitelist
+वै.|||whitelist

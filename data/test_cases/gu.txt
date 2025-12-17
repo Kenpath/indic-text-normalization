@@ -1,0 +1,131 @@
+# Test cases for text normalization
+# Format: input|||category
+# The normalizer will generate outputs dynamically during testing
+#
+
+# BATCH (5 tests)
+123|||batch
+૧૨.૩૪|||batch
+૧૨:૩૦|||batch
+₹૧૦૦|||batch
+૧૫-૦૬-૨૦૨૪|||batch
+
+# CARDINAL (11 tests)
+155=100|||cardinal
+૧૨૩૪|||cardinal
+૧૨૩૪૫|||cardinal
+૧૨૩૪૫૬|||cardinal
+૧૨૩૪૫૬૭|||cardinal
+૧૨૩૪૫૬૭૮|||cardinal
+-૧૨૩|||cardinal
+-120|||cardinal
+૧૦૦૦|||cardinal
+૧૦૦૦૦૦|||cardinal
+૧૦૦૦૦૦૦૦૦ |||cardinal
+
+# DATE (10 tests)
+૦૧-૦૪-૨૦૨૪|||date
+૧૫-૦૬-૨૦૨૪|||date
+૨૦૨૪-૦૧-૧૫|||date
+૧૫/૦૬/૨૦૨૪|||date
+૦૪-૦૧-૨૦૨૪|||date
+01-04-2024|||date
+15-06-2024|||date
+2024-01-15|||date
+15/06/2024|||date
+04-01-2024|||date
+
+# DECIMAL (10 tests)
+૧૨.૩૪|||decimal
+૧૨૩.૪૫૬|||decimal
+૦.૫|||decimal
+-૧૨.૩૪|||decimal
+૧૨.૩૪૫૬|||decimal
+12.34|||decimal
+123.456|||decimal
+0.5|||decimal
+-12.34|||decimal
+12.3456|||decimal
+
+# FRACTION (10 tests)
+૩/૪|||fraction
+૧/૨|||fraction
+૧/૪|||fraction
+૧૨ ૩/૪|||fraction
+-૧/૨|||fraction
+3/4|||fraction
+1/2|||fraction
+1/4|||fraction
+12 3/4|||fraction
+-1/2|||fraction
+
+# MEASURE (10 tests)
+૧૨ kg|||measure
+૧૨૫ kg|||measure
+૧૦૦ m|||measure
+૫ km|||measure
+૧૨.૩૪ cm|||measure
+12 kg|||measure
+125 kg|||measure
+100 m|||measure
+5 km|||measure
+12.34 cm|||measure
+
+# MIXED (4 tests)
+આજે ૧૫-૦૬-૨૦૨૪ ના રોજ ૧૨:૩૦ વાગ્યે સભા છે.|||mixed
+₹૧૦૦૦ અને ₹૫૦૦ મળીને ₹૧૫૦૦ થાય છે.|||mixed
+૧૨૩ કિલોગ્રામ વજન અને ૫૦ કિલોમીટર અંતર.|||mixed
+૧મું સ્થાન અને ૨મી સ્થાન.|||mixed
+
+# MONEY (11 tests)
+₹૧૦૦|||money
+₹૧૨૩૪|||money
+₹૫૦.૫૦|||money
+₹૦.૫૦|||money
+રૂ ૧૦૦૦|||money
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹1000|||money
+₹500|||money
+
+# ORDINAL (10 tests)
+૧મું|||ordinal
+૨મી|||ordinal
+૧૦મું|||ordinal
+૨૧મી|||ordinal
+૧૦૦મું|||ordinal
+1 kg|||ordinal
+2મી|||ordinal
+10મું|||ordinal
+21મી|||ordinal
+100મું|||ordinal
+
+# TELEPHONE (4 tests)
++૯૧૫૭૧૧૪૦૦૭|||telephone
++૯૧ ૯૨૧૦૫૧૫૬૦૬|||telephone
+૧૩૭૪-૩૦૯૯૮૮|||telephone
+9943206292|||telephone
+
+# TIME (13 tests)
+૧૨:૩૦|||time
+૧:૪૦|||time
+૧૨:૦૦|||time
+૧૨:૩૦:૪૫|||time
+૦૯:૧૫|||time
+૨૩:૫૯|||time
+12:30|||time
+1:40|||time
+12:00|||time
+12:30:45|||time
+09:15|||time
+23:59|||time
+9:15|||time
+
+# WHITELIST (5 tests)
+ડૉક્.|||whitelist
+પ્રો.|||whitelist
+શ્રી|||whitelist
+કિ.મી.|||whitelist
+મી.|||whitelist

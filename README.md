@@ -50,24 +50,69 @@ Each language module supports normalization of:
 
 ## Installation
 
-For detailed installation instructions including platform-specific setup, troubleshooting, and multiple installation methods, please refer to the **[Setup Guide](setup.md)**.
+### Prerequisites
 
-**Quick Start:**
+- Python 3.10 or 3.11
+- For macOS: Homebrew (for installing OpenFST)
 
-### Using Conda
+### Method 1: Using `uv` (Recommended for macOS)
+
+[`uv`](https://github.com/astral-sh/uv) is a fast Python package installer. This is the recommended method for macOS users.
+
+```bash
+# Install uv if not already installed
+curl -LsSf https://astral.sh/uv/install.sh | sh
+# or with Homebrew: brew install uv
+
+# Install OpenFST (required for pynini)
+brew install openfst
+
+# Create virtual environment
+uv venv
+source .venv/bin/activate  # On macOS/Linux
+
+# Install pynini with proper compiler flags
+CPLUS_INCLUDE_PATH=/opt/homebrew/include LIBRARY_PATH=/opt/homebrew/lib uv pip install pynini
+
+# Install all dependencies
+uv pip install -r requirements.txt
+```
+
+**Note**: The project uses `pynini==2.1.7` which is compatible with the latest OpenFST (1.8.4+).
+
+### Method 2: Using Conda
+
 ```bash
 conda create -n indic_tn python=3.10
 conda activate indic_tn
-conda install -c conda-forge pynini=2.1.6.post1
-pip install -e .
+conda install -c conda-forge pynini
+pip install -r requirements.txt
 ```
 
-### MacOS
+### Method 3: Using pip (macOS)
+
 ```bash
+# Install OpenFST
 brew install openfst
+
+# Create virtual environment
+python3 -m venv .venv
+source .venv/bin/activate
+
+# Install pynini with proper compiler flags
 CPLUS_INCLUDE_PATH=/opt/homebrew/include LIBRARY_PATH=/opt/homebrew/lib pip install pynini
-pip install -e .
+
+# Install all dependencies
+pip install -r requirements.txt
 ```
+
+### Troubleshooting
+
+**macOS ARM (M1/M2/M3) Users**: If you encounter compilation errors with pynini, ensure:
+- OpenFST is installed via Homebrew: `brew install openfst`
+- Use the compiler flags when installing pynini: `CPLUS_INCLUDE_PATH=/opt/homebrew/include LIBRARY_PATH=/opt/homebrew/lib`
+
+**Version Compatibility**: This package requires `pynini>=2.1.7` which is compatible with OpenFST 1.8.4+. Older versions of pynini (2.1.6.post1 and below) may have compatibility issues with newer OpenFST installations.
 
 
 ## Usage

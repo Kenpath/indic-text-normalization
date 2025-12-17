@@ -1,0 +1,153 @@
+# Test cases for text normalization
+# Format: input|||category
+# The normalizer will generate outputs dynamically during testing
+#
+
+# BATCH (5 tests)
+123|||batch
+१२.३४|||batch
+१२:३०|||batch
+₹१००|||batch
+१५-०६-२०२४|||batch
+
+# CARDINAL (14 tests)
+155=100|||cardinal
+१२३४|||cardinal
+१२३४५|||cardinal
+१२३४५६|||cardinal
+१२३४५६७|||cardinal
+१२३४५६७८|||cardinal
+-१२३|||cardinal
+-120|||cardinal
+१०००|||cardinal
+१०००००|||cardinal
+१००००००००|||cardinal
+456|||cardinal
+9943206870|||cardinal
+1,234,566|||cardinal
+
+# DATE (10 tests)
+०१-०४-२०२४|||date
+१५-०६-२०२४|||date
+२०२४-०१-१५|||date
+१५/०६/२०२४|||date
+०४-०१-२०२४|||date
+01-04-2024|||date
+15-06-2024|||date
+2024-01-15|||date
+15/06/2024|||date
+04-01-2024|||date
+
+# DECIMAL (10 tests)
+१२.३४|||decimal
+१२३.४५६|||decimal
+०.५|||decimal
+-१२.३४|||decimal
+१२.३४५६|||decimal
+12.34|||decimal
+123.456|||decimal
+0.5|||decimal
+-12.34|||decimal
+96.3456|||decimal
+
+# FRACTION (10 tests)
+३/४|||fraction
+१/२|||fraction
+१/४|||fraction
+१२३/४|||fraction
+-१/२|||fraction
+3/4|||fraction
+1/2|||fraction
+1/4|||fraction
+23/4|||fraction
+-1/2|||fraction
+
+# MEASURE (10 tests)
+१२ kg|||measure
+१२५ kg|||measure
+१०० m|||measure
+५ km|||measure
+१२.३४ cm|||measure
+12 kg|||measure
+125 kg|||measure
+100 m|||measure
+5 km|||measure
+12.34 cm|||measure
+
+# MIXED (5 tests)
+दिनै १५-०६-२०२४ आव १२:३० बजे गुबुन दं.|||mixed
+₹१००० आरो ₹५०० जाबोदों ₹१५०० होनो.|||mixed
+१२३ किलोग्राम जोरसिम आरो ५० किलोमीटर गासै.|||mixed
+१वां थाननि आरो २वां थाननि.|||mixed
+आंनि मोबाइल नम्बर 9876543210.|||mixed
+
+# MONEY (18 tests)
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹1000000|||money
+₹1050000|||money
+₹500|||money
+₹१००|||money
+₹१२३४|||money
+₹५०.५०|||money
+₹०.५०|||money
+रू १०००|||money
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹1000|||money
+₹500|||money
+
+# ORDINAL (10 tests)
+१वां|||ordinal
+२वां|||ordinal
+१०वां|||ordinal
+२१वां|||ordinal
+१००वां|||ordinal
+1वां|||ordinal
+2वां|||ordinal
+10वां|||ordinal
+21वां|||ordinal
+100वां|||ordinal
+
+# TELEPHONE (6 tests)
+आंनि मोबाइल नम्बर +९१५७११४००७|||telephone
++९१ ९२१०५१५६०६|||telephone
+आंनि मोबाइल नम्बर १३७४३०९९८८|||telephone
+9943206292|||telephone
+9943206292|||telephone
+1,234,567|||telephone
+
+# TIME (22 tests)
+12:30|||time
+1:40|||time
+12:00|||time
+12:14|||time
+12:30:45|||time
+9:15|||time
+09:15|||time
+23:59|||time
+12:49|||time
+१२:३०|||time
+१:४०|||time
+१२:००|||time
+१२:३०:४५|||time
+०९:१५|||time
+२३:५९|||time
+12:30|||time
+1:40|||time
+12:00|||time
+12:30:45|||time
+09:15|||time
+23:59|||time
+9:15|||time
+
+# WHITELIST (5 tests)
+डा.|||whitelist
+प्रो.|||whitelist
+श्री|||whitelist
+कि.मी.|||whitelist
+मी.|||whitelist

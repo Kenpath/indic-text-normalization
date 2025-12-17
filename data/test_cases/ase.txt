@@ -1,0 +1,146 @@
+# Test cases for text normalization
+# Format: input|||category
+# The normalizer will generate outputs dynamically during testing
+#
+
+# CARDINAL (14 tests)
+155=100|||cardinal
+১২৩৪|||cardinal
+১২৩৪৫|||cardinal
+১২৩৪৫৬|||cardinal
+১২৩৪৫৬৭|||cardinal
+১২৩৪৫৬৭৮|||cardinal
+-১২৩|||cardinal
+-120|||cardinal
+১০০০|||cardinal
+১০০০০০|||cardinal
+১০০০০০০০০|||cardinal
+456|||cardinal
+9943206870|||cardinal
+1,234,566|||cardinal
+
+# DATE (10 tests)
+০১-০৪-২০২৪|||date
+১৫-০৬-২০২৪|||date
+২০২৪-০১-১৫|||date
+১৫/০৬/২০২৪|||date
+০৪-০১-২০২৪|||date
+01-04-2024|||date
+15-06-2024|||date
+2024-01-15|||date
+15/06/2024|||date
+04-01-2024|||date
+
+# DECIMAL (10 tests)
+১২.৩৪|||decimal
+১২৩.৪৫৬|||decimal
+০.৫|||decimal
+-১২.৩৪|||decimal
+১২.৩৪৫৬|||decimal
+12.34|||decimal
+123.456|||decimal
+0.5|||decimal
+-12.34|||decimal
+96.3456|||decimal
+
+# FRACTION (10 tests)
+৩/৪|||fraction
+১/২|||fraction
+১/৪|||fraction
+১২৩/৪|||fraction
+-১/২|||fraction
+3/4|||fraction
+1/2|||fraction
+1/4|||fraction
+23/4|||fraction
+-1/2|||fraction
+
+# MEASURE (10 tests)
+১২ kg|||measure
+১২৫ kg|||measure
+১০০ m|||measure
+৫ km|||measure
+১২.৩৪ cm|||measure
+12 kg|||measure
+125 kg|||measure
+100 m|||measure
+5 km|||measure
+12.34 cm|||measure
+
+# MIXED (5 tests)
+আজি ১৫-০৬-২০২৪ তাৰিখে ১২:৩০ বজাত সভা আছে।|||mixed
+₹১০০০ আৰু ₹৫০০ যোগ কৰিলে ₹১৫০০ হয়।|||mixed
+১২৩ কিলোগ্ৰাম ওজন আৰু ৫০ কিলোমিটাৰ দূৰত্ব।|||mixed
+১তম স্থান আৰু ২তম স্থান।|||mixed
+মোৰ মোবাইল নম্বৰ 9876543210।|||mixed
+
+# MONEY (18 tests)
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹1000000|||money
+₹1050000|||money
+₹500|||money
+₹১০০|||money
+₹১২৩৪|||money
+₹৫০.৫০|||money
+₹০.৫০|||money
+₹১০০০|||money
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹1000|||money
+₹500|||money
+
+# ORDINAL (10 tests)
+১তম|||ordinal
+২তম|||ordinal
+১০তম|||ordinal
+২১তম|||ordinal
+১০০তম|||ordinal
+1তম|||ordinal
+2তম|||ordinal
+10তম|||ordinal
+21তম|||ordinal
+100তম|||ordinal
+
+# TELEPHONE (6 tests)
+মোৰ মোবাইল নম্বৰ +৯১৫৭১১৪০০৭|||telephone
++৯১ ৯২১০৫১৫৬০৬|||telephone
+মোৰ মোবাইল নম্বৰ ১৩৭৪৩০৯৯৮৮|||telephone
+9943206292|||telephone
+9943206292|||telephone
+1,234,567|||telephone
+
+# TIME (22 tests)
+12:30|||time
+1:40|||time
+12:00|||time
+12:14|||time
+12:30:45|||time
+9:15|||time
+09:15|||time
+23:59|||time
+12:49|||time
+১২:৩০|||time
+১:৪০|||time
+১২:০০|||time
+১২:৩০:৪৫|||time
+০৯:১৫|||time
+২৩:৫৯|||time
+12:30|||time
+1:40|||time
+12:00|||time
+12:30:45|||time
+09:15|||time
+23:59|||time
+9:15|||time
+
+# WHITELIST (5 tests)
+ডা.|||whitelist
+প্ৰফে.|||whitelist
+শ্ৰী|||whitelist
+কি.মি.|||whitelist
+মি.|||whitelist

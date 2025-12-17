@@ -1,0 +1,122 @@
+# Test cases for text normalization
+# Format: input|||category
+# The normalizer will generate outputs dynamically during testing
+#
+
+# BATCH (5 tests)
+123|||batch
+12.34|||batch
+12:30|||batch
+$100000000|||batch
+15-06-2024|||batch
+
+# CARDINAL (11 tests)
+155|||cardinal
+1040|||cardinal
+15034|||cardinal
+123456|||cardinal
+1234567|||cardinal
+12345678|||cardinal
+-123|||cardinal
+-120|||cardinal
+1000|||cardinal
+100000|||cardinal
+1000000000|||cardinal
+
+# DATE (8 tests)
+01-04-2024|||date
+15-06-2024|||date
+2024-01-15|||date
+15/06/2024|||date
+04-01-2024|||date
+January 15, 2024|||date
+15th January 2024|||date
+2024/01/15|||date
+
+# DECIMAL (7 tests)
+12.34|||decimal
+123.456|||decimal
+0.5|||decimal
+-12.34|||decimal
+12.3456|||decimal
+0.001|||decimal
+100.5|||decimal
+
+# FRACTION (7 tests)
+3/4|||fraction
+1/2|||fraction
+1/4|||fraction
+12 3/4|||fraction
+-1/2|||fraction
+5/8|||fraction
+2/3|||fraction
+
+# MEASURE (8 tests)
+12 kg|||measure
+125 kg|||measure
+100 m|||measure
+5 km|||measure
+12.34 cm|||measure
+10 lbs|||measure
+5.5 ft|||measure
+100 mph|||measure
+
+# MIXED (5 tests)
+The meeting is on 15-06-2024 at 12:30 PM.|||mixed
+$1000 and $500 together make $1500.|||mixed
+123 kg weight and 50 km distance.|||mixed
+1st place and 2nd place.|||mixed
+Call me at +1-555-123-4567 on January 15th.|||mixed
+
+# MONEY (9 tests)
+$100|||money
+$1234|||money
+$50.50|||money
+$0.50|||money
+$1000|||money
+$500|||money
+£100|||money
+€100|||money
+USD 100|||money
+
+# ORDINAL (9 tests)
+1st|||ordinal
+2nd|||ordinal
+3rd|||ordinal
+4th|||ordinal
+10th|||ordinal
+21st|||ordinal
+100th|||ordinal
+1st place|||ordinal
+2nd place|||ordinal
+
+# TELEPHONE (8 tests)
++1-555-123-4567|||telephone
++1 5551234567|||telephone
+12345678|||telephone
+1,234,566,256|||telephone
+5551234|||telephone
+94544369|||telephone
+9943206292|||telephone
+(555) 123-4567|||telephone
+
+# TIME (9 tests)
+12:30|||time
+1:40|||time
+12:00|||time
+12:30:45|||time
+09:15|||time
+23:59|||time
+9:15|||time
+12:30 PM|||time
+1:40 AM|||time
+
+# WHITELIST (8 tests)
+Dr.|||whitelist
+Prof.|||whitelist
+Mr.|||whitelist
+Mrs.|||whitelist
+km|||whitelist
+m|||whitelist
+kg|||whitelist
+etc.|||whitelist

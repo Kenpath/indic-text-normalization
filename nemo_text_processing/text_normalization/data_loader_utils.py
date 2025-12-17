@@ -355,6 +355,7 @@ def post_process_punct(input: str, normalized_text: str, add_unicode_punct: bool
                 idx_out += 1
                 idx_in += 1
         except:
+            pass
             logger.info(f"Skipping post-processing of {''.join(normalized_text)} for '{punct}'")
 
     normalized_text = "".join(normalized_text)

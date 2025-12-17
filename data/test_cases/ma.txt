@@ -1,0 +1,157 @@
+# Test cases for text normalization
+# Format: input|||category
+# The normalizer will generate outputs dynamically during testing
+#
+
+# BATCH (5 tests)
+123|||batch
+൧൨.൩൪|||batch
+൧൨:൩൦|||batch
+₹൧൦൦|||batch
+൧௫-൦൬-൨൦൨൪|||batch
+
+# CARDINAL (16 tests)
+155=100|||cardinal
+൧൨൩൪|||cardinal
+൧൨൩൪൫|||cardinal
+൧൨൩൪൫൬|||cardinal
+൧൨൩൪൫൬൭|||cardinal
+൧൨൩൪൫൬൭൮|||cardinal
+൧൨൩|||cardinal
+൧൨൦|||cardinal
+൧൦൦൦|||cardinal
+൧൦൦൦൦൦|||cardinal
+൧൦൦൦൦൦൦൦൦|||cardinal
+൪൫൬|||cardinal
+൯൯൪൩൨൦൬൮൭൦|||cardinal
+1234566|||cardinal
+45|||cardinal
+XCIV|||cardinal
+
+# DATE (10 tests)
+൦൧-൦൪-൨൦൨൪|||date
+൧൫-൦൬-൨൦൨൪|||date
+൨൦൨൪-൦൧-൧൫|||date
+൧൫/൦൬/൨൦൨൪|||date
+൦൪-൦൧-൨൦൨൪|||date
+01-04-2024|||date
+15-06-2024|||date
+2024-01-15|||date
+15/06/2024|||date
+04-01-2024|||date
+
+# DECIMAL (10 tests)
+൧൨.൩൪|||decimal
+൧൨൩.൪൫൬|||decimal
+൦.൫|||decimal
+-൧൨.൩൪|||decimal
+൧൨.൩൪൫൬|||decimal
+12.34|||decimal
+123.456|||decimal
+0.5|||decimal
+-12.34|||decimal
+96.3456|||decimal
+
+# FRACTION (10 tests)
+൩/൪|||fraction
+൧/൨|||fraction
+൧/൪|||fraction
+൧൨൩/൪|||fraction
+-൧/൨|||fraction
+3/4|||fraction
+1/2|||fraction
+1/4|||fraction
+23/4|||fraction
+-1/2|||fraction
+
+# MEASURE (10 tests)
+൧൨ kg|||measure
+൧൨൫ kg|||measure
+൧൦൦ m|||measure
+൫ km|||measure
+൧൨.൩൪ cm|||measure
+12 kg|||measure
+125 kg|||measure
+100 m|||measure
+5 km|||measure
+12.34 cm|||measure
+
+# MIXED (5 tests)
+இன்று ൧௫-൦൬-൨൦൨൪ அன்று ൧൨:൩൦ மணிக்கு கூட்டம் உள்ளது.|||mixed
+₹൧൦൦൦ மற்றும் ₹௫൦൦ சேர்த்தால் ₹൧௫൦൦ ஆகும்.|||mixed
+൧൨൩ கிலோகிராம் எடை மற்றும் ௫൦ கிலோமீட்டர் தூரம்.|||mixed
+൧ാം இடம் மற்றும் ൨ാം இடம்.|||mixed
+என்னுடைய மொபைல் எண்ணு 9876543210.|||mixed
+
+# MONEY (19 tests)
+₹100|||money
+₹568|||money
+₹3546|||money
+₹50.50|||money
+₹0.50|||money
+₹1000000|||money
+₹1050000|||money
+₹500|||money
+₹൧൦൦|||money
+₹൧൨൩൪|||money
+₹൫൦.൫൦|||money
+₹൦.൫൦|||money
+രൂപ ൧൦൦൦|||money
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹1000|||money
+₹500|||money
+
+# ORDINAL (10 tests)
+൧ാം|||ordinal
+൨ാം|||ordinal
+൧൦ാം|||ordinal
+൨൧ാം|||ordinal
+൧൦൦ാം|||ordinal
+1 kg|||ordinal
+2ാം|||ordinal
+10ാം|||ordinal
+21ാം|||ordinal
+100ാം|||ordinal
+
+# TELEPHONE (7 tests)
+എന്റെ മൊബൈൽ നമ്പർ +൯൧൫൭൧൧൪൦൦൭|||telephone
++൯൧ ൯൨൧൦൫൧൫൬൦൬|||telephone
+എന്റെ മൊബൈൽ നമ്പർ ൧൩൭൪൩൦൯൯൮൮|||telephone
+9943206292|||telephone
+123456|||telephone
+1234567|||telephone
+1,234,567|||telephone
+
+# TIME (22 tests)
+12:30|||time
+1:40|||time
+12:00|||time
+12:14|||time
+12:30:45|||time
+9:15|||time
+09:15|||time
+23:59|||time
+12:49|||time
+൧൨:൩൦|||time
+൧:൪൦|||time
+൧൨:൦൦|||time
+൧൨:൩൦:൪൫|||time
+൦൯:൧൫|||time
+൨൩:൫൯|||time
+12:30|||time
+1:40|||time
+12:00|||time
+12:30:45|||time
+09:15|||time
+23:59|||time
+9:15|||time
+
+# WHITELIST (5 tests)
+டா.|||whitelist
+புரொ.|||whitelist
+ஸ்ரீ|||whitelist
+கி.மீ.|||whitelist
+மீ.|||whitelist

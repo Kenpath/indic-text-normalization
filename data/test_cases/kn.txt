@@ -1,0 +1,145 @@
+# Test cases for text normalization
+# Format: input|||category
+# The normalizer will generate outputs dynamically during testing
+#
+
+# BATCH (5 tests)
+123|||batch
+೧೨.೩೪|||batch
+೧೨:೩೦|||batch
+₹೧೦೦|||batch
+೧೫-೦೬-೨೦೨೪|||batch
+
+# CARDINAL (11 tests)
+ಇದರಲ್ಲಿ 12345 ಮತ್ತು 99 ಸಂಖ್ಯೆಗಳೂ ಸೇರಿವೆ.|||cardinal
+೧೨೩೪|||cardinal
+೧೨೩೪೫|||cardinal
+೧೨೩೪೫೬|||cardinal
+೧೨೩೪೫೬೭|||cardinal
+೧೨೩೪೫೬೭೮|||cardinal
+-೧೨೩|||cardinal
+-120|||cardinal
+೧೦೦೦|||cardinal
+೧೦೦೦೦೦|||cardinal
+೧೦೦೦೦೦೦೦೦ |||cardinal
+
+# DATE (10 tests)
+೦೧-೦೪-೨೦೨೪|||date
+೧೫-೦೬-೨೦೨೪|||date
+೨೦೨೪-೦೧-೧೫|||date
+೧೫/೦೬/೨೦೨೪|||date
+೦೪-೦೧-೨೦೨೪|||date
+01-04-2024|||date
+15-06-2024|||date
+2024-01-15|||date
+15/06/2024|||date
+04-01-2024|||date
+
+# DECIMAL (10 tests)
+೧೨.೩೪|||decimal
+೧೨೩.೪೫೬|||decimal
+೦.೫|||decimal
+-೧೨.೩೪|||decimal
+೧೨.೩೪೫೬|||decimal
+12.34|||decimal
+123.456|||decimal
+0.5|||decimal
+-12.34|||decimal
+12.3456|||decimal
+
+# FRACTION (10 tests)
+೩/೪|||fraction
+೧/೨|||fraction
+೧/೪|||fraction
+೧೨ ೩/೪|||fraction
+-೧/೨|||fraction
+3/4|||fraction
+1/2|||fraction
+1/4|||fraction
+12 3/4|||fraction
+-1/2|||fraction
+
+# MEASURE (10 tests)
+೧೨ kg|||measure
+೧೨೫ kg|||measure
+೧೦೦ m|||measure
+೫ km|||measure
+೧೨.೩೪ cm|||measure
+12 kg|||measure
+125 kg|||measure
+100 m|||measure
+5 km|||measure
+12.34 cm|||measure
+
+# MIXED (4 tests)
+ಇಂದು ೧೫-೦೬-೨೦೨೪ ರಂದು ೧೨:೩೦ ಗಂಟೆಗೆ ಸಭೆ ಇದೆ.|||mixed
+₹500 ಮತ್ತು ₹೫೦೦ ಸೇರಿ ₹೧೫೦೦ ಆಗುತ್ತದೆ.|||mixed
+೧೨೩ ಕಿಲೋಗ್ರಾಂ ತೂಕ ಮತ್ತು ೫೦ ಕಿಲೋಮೀಟರ್ ದೂರ.|||mixed
+೧ನೇ ಸ್ಥಾನ ಮತ್ತು ೨ನೇ ಸ್ಥಾನ.|||mixed
+
+# MONEY (18 tests)
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹1000000|||money
+₹1050000|||money
+₹500|||money
+₹೧೦೦|||money
+₹೧೨೩೪|||money
+₹೫೦.೫೦|||money
+₹೦.೫೦|||money
+ರೂ ೧೦೦೦|||money
+₹100|||money
+₹1234|||money
+₹50.50|||money
+₹0.50|||money
+₹1000|||money
+₹500|||money
+
+# ORDINAL (10 tests)
+೧ನೇ|||ordinal
+೨ನೇ|||ordinal
+೧೦ನೇ|||ordinal
+೨೧ನೇ|||ordinal
+೧೦೦ನೇ|||ordinal
+1 kg|||ordinal
+2ನೇ|||ordinal
+10ನೇ|||ordinal
+21ನೇ|||ordinal
+100ನೇ|||ordinal
+
+# TELEPHONE (4 tests)
++೯೧೫೭೧೧೪೦೦೭|||telephone
++೯೧ ೯೨೧೦೫೧೫೬೦೬|||telephone
+೧೩೭೪-೩೦೯೯೮೮|||telephone
+9943206292|||telephone
+
+# TIME (20 tests)
+12:30|||time
+1:40|||time
+12:00|||time
+12:30:45|||time
+09:15|||time
+23:59|||time
+9:15|||time
+೧೨:೩೦|||time
+೧:೪೦|||time
+೧೨:೦೦|||time
+೧೨:೩೦:೪೫|||time
+೦೯:೧೫|||time
+೨೩:೫೯|||time
+12:30|||time
+1:40|||time
+12:00|||time
+12:30:45|||time
+09:15|||time
+23:59|||time
+9:15|||time
+
+# WHITELIST (5 tests)
+ಡಾ.|||whitelist
+ಪ್ರೊ.|||whitelist
+ಶ್ರೀ|||whitelist
+ಕೆ.ಎಂ.|||whitelist
+ಮೀ.|||whitelist
