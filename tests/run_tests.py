@@ -67,7 +67,7 @@ def run_tests(lang_code, test_cases, verbose=False, validate=False):
     
     # Import here to allow --help to work without dependencies
     try:
-        from nemo_text_processing.text_normalization.normalize import Normalizer
+        from indic_text_normalization.text_normalization.normalize import Normalizer
     except ImportError as e:
         print(f"Error: Required dependencies not installed.")
         print(f"Please install requirements: pip install -r requirements.txt")
@@ -165,7 +165,7 @@ Examples:
   python tests/run_tests.py --lang en
   
 Supported languages:
-  en, hi, bn, ta, te, gu, kn, mr, ma, ne, sa, bo, do, Pu, ase, bho, mag, mai, cg
+  en, hi, bn, ta, te, gu, kn, mr, ma, ne, sa, bo, do, pu, as, bho, mag, mai, hne
         """
     )
     
@@ -177,18 +177,21 @@ Supported languages:
     
     parser.add_argument(
         '--category',
-        help='Filter by specific category (e.g., cardinal, time, money)'
+        help='Filter by specific category (e.g., cardinal, time, money)',
+        default=None
     )
     
     parser.add_argument(
         '--verbose',
         action='store_true',
+        default=True,
         help='Show detailed output for each test'
     )
     
     parser.add_argument(
         '--validate',
         action='store_true',
+        default=False,
         help='Validate outputs against expected results (future feature)'
     )
     

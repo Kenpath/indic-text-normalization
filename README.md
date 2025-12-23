@@ -2,6 +2,8 @@
 
 A production-ready, comprehensive Python package for text normalization across multiple Indian languages, built on Weighted Finite-State Transducers (WFST) using Pynini.
 
+> **Note:** This project is an extension of [NVIDIA NeMo Text Processing](https://github.com/NVIDIA/NeMo-text-processing), focused on providing comprehensive support for Indic languages. It maintains the same architecture and API while adding specialized language modules for 19 Indian languages.
+
 ## Overview
 
 `indic-text-normalization` is a production-ready, WFST-based library that provides **deterministic, low-latency, and explainable** text normalization for **TTS, ASR, and NLP** pipelines, converting semiotic entities (numbers, dates, currency) into spoken form across 19 Indian languages.
@@ -17,7 +19,7 @@ A production-ready, comprehensive Python package for text normalization across m
 - **Magahi** (mag) - मगही
 - **Chhattisgarhi** (hne) - छत्तीसगढ़ी
 - **Maithili** (mai) - मैथिली
-- **Assamese** (ase) - অসমীয়া
+- **Assamese** (as) - অসমীয়া
 - **Bodo** (bo) - बड़ो
 - **Dogri** (do) - डोगरी
 - **Gujarati** (gu) - ગુજરાતી
@@ -120,7 +122,7 @@ pip install -r requirements.txt
 ### Basic Usage
 
 ```python
-from indic_text_normalization import Normalizer
+from indic_text_normalization.text_normalization import Normalizer
 
 # Initialize normalizer for a specific language
 normalizer = Normalizer(input_case='cased', lang='hi')
@@ -159,7 +161,7 @@ normalized = normalizer.normalize(text)
 
 ```
 indic-text-normalization/
-├── indic_text_normalization/
+├── text_normalization/
 │   ├── hi/          # Hindi
 │   ├── ta/          # Tamil
 │   ├── ma/          # Malayalam
@@ -184,12 +186,21 @@ Each language directory contains:
 
 ## Testing
 
-Test notebooks are available for each language:
+Tests are available in the `tests/` directory for each language:
 
 ```bash
-# Run Jupyter notebook
-jupyter notebook tests/test_hindi.ipynb
-jupyter notebook tests/test_tamil.ipynb
+python tests/run_tests.py --lang hi
+python tests/run_tests.py --lang ta
+python tests/run_tests.py --lang ma
+python tests/run_tests.py --lang gu
+python tests/run_tests.py --lang ase
+python tests/run_tests.py --lang mai
+python tests/run_tests.py --lang mag
+python tests/run_tests.py --lang hne
+python tests/run_tests.py --lang bo
+python tests/run_tests.py --lang do
+python tests/run_tests.py --lang pu
+python tests/run_tests.py --lang sa
 # ... etc.
 ```
 
@@ -197,7 +208,7 @@ jupyter notebook tests/test_tamil.ipynb
 
 ### Adding a New Language
 
-1. Create a new directory under `indic_text_normalization/` with the language code
+1. Create a new directory under `text_normalization/` with the language code
 2. Replicate the structure from an existing language (e.g., Hindi)
 3. Update all TSV data files with native terminology
 4. Modify taggers and verbalizers for language-specific rules
@@ -231,11 +242,26 @@ The normalization pipeline uses Weighted Finite-State Transducers (WFST) impleme
 
 ## License
 
-This project is licensed under the Apache 2.0 License.
+This project is licensed under the Apache 2.0 License. See the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 
-Built upon the foundation of NVIDIA NeMo Text Processing, adapted and extended for comprehensive Indic language support with authentic native terminology and language-specific normalization rules.
+This project is a derivative work based on [NVIDIA NeMo Text Processing](https://github.com/NVIDIA/NeMo-text-processing).
+
+### Original Work
+- **NVIDIA NeMo Text Processing** - Copyright 2020-2024 NVIDIA Corporation
+- Original repository: https://github.com/NVIDIA/NeMo-text-processing
+- Base WFST framework, English language module, and core architecture
+
+### Contributions by Kenpath Technologies Pvt Ltd
+- Comprehensive Indic language support for 19 Indian languages
+- Language-specific taggers and verbalizers for each semiotic class
+- Native script digit handling and verbalization
+- Cultural and linguistic adaptations for Indic languages
+- Test cases and validation data
+
+### Relationship to Upstream
+This project maintains API compatibility with NVIDIA NeMo Text Processing while extending support to Indic languages. The core WFST architecture and English module are derived from the original NeMo framework. All Indic language modules (Hindi, Bengali, Tamil, Telugu, etc.) are new additions developed specifically for this fork.
 
 ## Support
 

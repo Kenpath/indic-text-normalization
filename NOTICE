@@ -1,0 +1,44 @@
+Indic Text Normalization
+Copyright 2025 Kenpath Technologies Pvt Ltd
+
+This product is a derivative work based on NVIDIA NeMo Text Processing.
+
+================================================================================
+
+This product contains code from NVIDIA NeMo Text Processing
+Copyright 2020-2024 NVIDIA Corporation
+
+Original repository: https://github.com/NVIDIA/NeMo-text-processing
+Licensed under the Apache License, Version 2.0
+
+The base text normalization framework, including the English language module
+(en/), graph utilities, and core WFST architecture are derived from NVIDIA
+NeMo Text Processing.
+
+================================================================================
+
+Portions of this software are derived from Google's text normalization grammars.
+Copyright 2015 and onwards Google, Inc.
+
+Specifically, the base graph utilities in en/graph_utils.py contain code
+originally developed by Google and subsequently incorporated into NVIDIA NeMo
+Text Processing.
+
+================================================================================
+
+Kenpath Technologies Pvt Ltd has contributed:
+- Comprehensive Indic language support for 19 Indian languages:
+  Hindi (hi), Bengali (bn), Marathi (mr), Telugu (te), Kannada (kn),
+  Bhojpuri (bho), Magahi (mag), Chhattisgarhi (hne), Maithili (mai),
+  Assamese (as), Bodo (bo), Dogri (do), Gujarati (gu), Malayalam (ma),
+  Punjabi (pu), Tamil (ta), Nepali (ne), and Sanskrit (sa)
+- Language-specific taggers and verbalizers for each semiotic class
+- Native script digit handling and verbalization
+- Cultural and linguistic adaptations for Indic languages
+- Test cases and validation data for Indic languages
+
+================================================================================
+
+This software is licensed under the Apache License, Version 2.0.
+See the LICENSE file for the full license text.
+

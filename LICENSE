@@ -199,3 +199,17 @@
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+
+================================================================================
+
+APPLICABLE COPYRIGHT NOTICES:
+
+Copyright 2020-2024 NVIDIA Corporation
+Copyright 2025 Kenpath Technologies Pvt Ltd
+
+This software contains code originally developed by NVIDIA Corporation as part
+of the NeMo Text Processing project, and has been extended with Indic language
+support by Kenpath Technologies Pvt Ltd.
+
+Portions of this software are derived from Google's text normalization grammars.
+Copyright 2015 and onwards Google, Inc.

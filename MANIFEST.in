@@ -1,3 +1,6 @@
 include LICENSE
-include NEWS
-include requirements/*
+include NOTICE
+include requirements.txt
+include requirements_test.txt
+recursive-include indic_text_normalization/text_normalization/*/data *.tsv
+recursive-include indic_text_normalization/text_normalization/*/data *.py

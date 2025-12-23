@@ -19,12 +19,12 @@ Each language has its own test file named `<lang>.txt`:
 - `sa.txt` - Sanskrit
 - `bo.txt` - Bodo
 - `do.txt` - Dogri
-- `Pu.txt` - Punjabi
-- `ase.txt` - Assamese
+- `pu.txt` - Punjabi
+- `as.txt` - Assamese
 - `bho.txt` - Bhojpuri
 - `mag.txt` - Magadhi
 - `mai.txt` - Maithili
-- `cg.txt` - Chhattisgarhi
+- `hne.txt` - Chhattisgarhi
 
 ## File Format
 
@@ -124,12 +124,12 @@ Total test cases: **2,215** across **19 languages**
 | Sanskrit | 125 | sa.txt |
 | Bodo | 125 | bo.txt |
 | Dogri | 125 | do.txt |
-| Punjabi | 125 | Pu.txt |
-| Assamese | 120 | ase.txt |
+| Punjabi | 125 | pu.txt |
+| Assamese | 120 | as.txt |
 | Bhojpuri | 103 | bho.txt |
 | Magadhi | 103 | mag.txt |
 | Maithili | 146 | mai.txt |
-| Chhattisgarhi | 104 | cg.txt |
+| Chhattisgarhi | 104 | hne.txt |
 
 ## Notes
 
