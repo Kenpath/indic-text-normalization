@@ -342,7 +342,7 @@ class Normalizer:
                 return text
         output = SPACE_DUP.sub(' ', output[1:])
 
-        if self.lang in ["en"] and hasattr(self, 'post_processor'):
+        if self.post_processor is not None:
             output = self.post_process(output)
 
         if punct_post_process:
