@@ -196,7 +196,7 @@ python tests/run_tests.py --lang te
 python tests/run_tests.py --lang kn
 python tests/run_tests.py --lang gu
 python tests/run_tests.py --lang as
-python tests/run_tests.py --lang bo
+python tests/run_tests.py --lang brx
 python tests/run_tests.py --lang doi
 python tests/run_tests.py --lang pu
 python tests/run_tests.py --lang mai
