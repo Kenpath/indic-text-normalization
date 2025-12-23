@@ -122,7 +122,7 @@ pip install -r requirements.txt
 ### Basic Usage
 
 ```python
-from indic_text_normalization.text_normalization import Normalizer
+from indic_text_normalization import Normalizer
 
 # Initialize normalizer for a specific language
 normalizer = Normalizer(input_case='cased', lang='hi')

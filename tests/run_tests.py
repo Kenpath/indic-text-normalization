@@ -67,7 +67,7 @@ def run_tests(lang_code, test_cases, verbose=False, validate=False):
     
     # Import here to allow --help to work without dependencies
     try:
-        from indic_text_normalization.text_normalization.normalize import Normalizer
+        from indic_text_normalization.normalize import Normalizer
     except ImportError as e:
         print(f"Error: Required dependencies not installed.")
         print(f"Please install requirements: pip install -r requirements.txt")
