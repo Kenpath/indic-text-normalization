@@ -52,6 +52,7 @@ class MathFst(GraphFst):
         super().__init__(name="math", kind="classify", deterministic=deterministic)
 
         cardinal_graph = cardinal.final_graph
+        digit_word_graph = (cardinal.digit | cardinal.zero).optimize()
         
         # Support both Tamil and Arabic digits
         # Tamil digits input
@@ -65,22 +66,42 @@ class MathFst(GraphFst):
             arabic_to_tamil_number @ cardinal_graph
         ).optimize()
         
-        # Combined number graph
-        number_graph = tamil_number_graph | arabic_number_graph
+        # Combined integer graph
+        integer_graph = (tamil_number_graph | arabic_number_graph).optimize()
+
+        # Decimal support inside math (needed for π equations)
+        # Speak fractional digits digit-by-digit and use "புள்ளி" as decimal separator.
+        tamil_frac = pynini.compose(
+            pynini.closure(NEMO_TA_DIGIT, 1),
+            digit_word_graph + pynini.closure(insert_space + digit_word_graph),
+        ).optimize()
+        arabic_frac = pynini.compose(
+            pynini.closure(NEMO_DIGIT, 1),
+            arabic_to_tamil_number @ (digit_word_graph + pynini.closure(insert_space + digit_word_graph)),
+        ).optimize()
+        fractional_graph = (tamil_frac | arabic_frac).optimize()
+
+        point = pynutil.delete(".") + pynutil.insert(" புள்ளி ")
+        decimal_graph = (integer_graph + point + fractional_graph).optimize()
+
+        # Operands supported by math expressions
+        # Prefer decimals when they match, otherwise fall back to integers.
+        operand_graph = (pynutil.add_weight(decimal_graph, -0.1) | integer_graph).optimize()
 
         # Optional space around operators
         optional_space = pynini.closure(NEMO_SPACE, 0, 1)
         delimiter = optional_space | pynutil.insert(" ")
+        tight = pynutil.insert("")  # no space
 
         # Operators that can appear between numbers
         # Exclude : and / to avoid conflicts with time and dates
-        operators = pynini.union("+", "-", "*", "=", "&", "^", "%", "$", "#", "@", "!", "<", ">", ",", "(", ")")
+        operators = pynini.union("+", "-", "*", "=", "&", "^", "%", "$", "#", "@", "!", "<", ">", "(", ")")
         
-        # Math expression: number operator number
-        # Pattern: number [space] operator [space] number
+        # Math expression: operand operator operand
+        # Pattern: operand [space] operator [space] operand
         math_expression = (
             pynutil.insert("left: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("operator: \"")
@@ -88,15 +109,15 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("right: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
         )
 
-        # Also support: number operator number operator number (for longer expressions)
+        # Also support: operand operator operand operator operand (for longer expressions)
         # This handles cases like "1+2+3"
         extended_math = (
             pynutil.insert("left: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("operator: \"")
@@ -104,19 +125,63 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("middle: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
             + delimiter
-            + pynutil.insert("operator2: \"")
+            + pynutil.insert("operator_two: \"")
             + (operators @ math_operations)
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("right: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
         )
 
-        final_graph = math_expression | extended_math
+        # Tight minus always means FROM:
+        # - "10-2=8" -> left FROM middle EQUAL right (no spaces anywhere)
+        extended_math_tight_from_equals = (
+            pynutil.insert("left: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "முதல்")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("middle: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator_two: \"")
+            + pynini.cross("=", "சமம்")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("right: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+        )
+
+        # - "10-2 பெரிய எண்" -> left FROM right (rest handled by WordFst)
+        math_expression_tight_from_text = (
+            pynutil.insert("left: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "முதல்")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("right: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+        )
+
+        final_graph = (
+            pynutil.add_weight(extended_math_tight_from_equals, -0.2)
+            | pynutil.add_weight(math_expression_tight_from_text, -0.15)
+            | math_expression
+            | extended_math
+        )
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph.optimize()
 

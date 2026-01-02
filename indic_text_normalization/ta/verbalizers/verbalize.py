@@ -21,6 +21,8 @@ from indic_text_normalization.ta.verbalizers.math import MathFst
 from indic_text_normalization.ta.verbalizers.measure import MeasureFst
 from indic_text_normalization.ta.verbalizers.money import MoneyFst
 from indic_text_normalization.ta.verbalizers.ordinal import OrdinalFst
+from indic_text_normalization.ta.verbalizers.power import PowerFst
+from indic_text_normalization.ta.verbalizers.scientific import ScientificFst
 from indic_text_normalization.ta.verbalizers.telephone import TelephoneFst
 from indic_text_normalization.ta.verbalizers.time import TimeFst
 from indic_text_normalization.ta.verbalizers.whitelist import WhiteListFst
@@ -67,6 +69,12 @@ class VerbalizeFst(GraphFst):
         math = MathFst(deterministic=deterministic)
         math_graph = math.fst
 
+        scientific = ScientificFst(deterministic=deterministic)
+        scientific_graph = scientific.fst
+
+        power = PowerFst(deterministic=deterministic)
+        power_graph = power.fst
+
         telephone = TelephoneFst(deterministic=deterministic)
         telephone_graph = telephone.fst
 
@@ -82,6 +90,8 @@ class VerbalizeFst(GraphFst):
             | fraction_graph
             | ordinal_graph
             | math_graph
+            | scientific_graph
+            | power_graph
             | telephone_graph
             | whitelist_graph
         )

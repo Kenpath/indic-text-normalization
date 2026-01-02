@@ -68,12 +68,8 @@ class MathFst(GraphFst):
         # Combined number graph
         number_graph = hindi_number_graph | arabic_number_graph
 
-        # Minimal symbol support needed for π equations
-        pi_graph = pynini.cross("π", "पाई").optimize()
-
         # Operands supported by math expressions
-        # Prefer numbers when they match, otherwise fall back to pi.
-        operand_graph = (number_graph | pi_graph).optimize()
+        operand_graph = number_graph
 
         # Optional space around operators
         optional_space = pynini.closure(NEMO_SPACE, 0, 1)

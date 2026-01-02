@@ -15,55 +15,34 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.graph_utils import NEMO_CHAR, GraphFst, delete_space, insert_space
+from indic_text_normalization.te.graph_utils import MINUS, NEMO_NOT_QUOTE, GraphFst, insert_space
+from indic_text_normalization.te.taggers.decimal import quantities
 
 
 class DecimalFst(GraphFst):
     """
     Finite state transducer for verbalizing decimal, e.g.
-        decimal { negative: "true" integer_part: "12" fractional_part: "5006" quantity: "billion" } -> minus twelve point five zero zero six billion
-
-    Args:
-        deterministic: if True will provide a single transduction option,
-            for False multiple options (used for audio-based normalization)
+        decimal { negative: "true" integer_part: "పన్నెండు"  fractional_part: "ఐదు సున్నా సున్నా ఆరు" quantity: "కోటి" }
+            -> రుణాత్మక పన్నెండు దశాంశం ఐదు సున్నా సున్నా ఆరు కోటి
+        decimal { integer_part: "పన్నెండు" quantity: "కోటి" } -> పన్నెండు కోటి
     """
 
     def __init__(self, deterministic: bool = True):
         super().__init__(name="decimal", kind="verbalize", deterministic=deterministic)
 
-        optional_sign = pynini.closure(
-            pynini.cross("negative: \"true\"", "minus ") + delete_space, 0, 1
-        )
+        delete_space = pynutil.delete(" ")
+        optional_sign = pynini.closure(pynini.cross("negative: \"true\"", MINUS) + delete_space, 0, 1)
 
-        integer = (
-            pynutil.delete("integer_part:")
-            + delete_space
-            + pynutil.delete("\"")
-            + pynini.closure(pynini.difference(pynini.union(pynini.closure(NEMO_CHAR), " "), "\""), 1)
-            + pynutil.delete("\"")
+        integer = pynutil.delete("integer_part: \"") + pynini.closure(NEMO_NOT_QUOTE, 1) + pynutil.delete("\"")
+        fractional_default = (
+            pynutil.delete("fractional_part: \"") + pynini.closure(NEMO_NOT_QUOTE, 1) + pynutil.delete("\"")
         )
+        fractional = pynutil.insert(" దశాంశం ") + fractional_default
 
-        fractional = (
-            pynutil.delete("fractional_part:")
-            + delete_space
-            + pynutil.delete("\"")
-            + pynini.closure(pynini.difference(pynini.union(pynini.closure(NEMO_CHAR), " "), "\""), 1)
-            + pynutil.delete("\"")
-        )
+        quantity = delete_space + insert_space + pynutil.delete("quantity: \"") + quantities + pynutil.delete("\"")
+        optional_quantity = pynini.closure(quantity, 0, 1)
 
-        quantity = (
-            delete_space
-            + insert_space
-            + pynutil.delete("quantity:")
-            + delete_space
-            + pynutil.delete("\"")
-            + pynini.closure(pynini.difference(pynini.union(pynini.closure(NEMO_CHAR), " "), "\""), 1)
-            + pynutil.delete("\"")
-        )
-
-        graph = optional_sign + integer
-        graph += delete_space + pynutil.insert(" point ") + delete_space + fractional
-        graph += pynini.closure(quantity, 0, 1)
+        graph = optional_sign + (integer + quantity | integer + delete_space + fractional + optional_quantity)
 
         self.numbers = graph
         delete_tokens = self.delete_tokens(graph)

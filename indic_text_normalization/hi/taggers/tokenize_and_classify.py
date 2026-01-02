@@ -20,6 +20,10 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.hi.graph_utils import (
+    NEMO_DIGIT,
+    NEMO_HI_DIGIT,
+    NEMO_NOT_SPACE,
+    NEMO_SIGMA,
     NEMO_SPACE,
     NEMO_WHITE_SPACE,
     GraphFst,
@@ -38,7 +42,6 @@ from indic_text_normalization.hi.taggers.money import MoneyFst
 from indic_text_normalization.hi.taggers.ordinal import OrdinalFst
 from indic_text_normalization.hi.taggers.punctuation import PunctuationFst
 from indic_text_normalization.hi.taggers.range import RangeFst
-from indic_text_normalization.hi.taggers.roman import RomanFst
 from indic_text_normalization.hi.taggers.serial import SerialFst
 from indic_text_normalization.hi.taggers.telephone import TelephoneFst
 from indic_text_normalization.hi.taggers.time import TimeFst
@@ -47,7 +50,6 @@ from indic_text_normalization.hi.taggers.word import WordFst
 from indic_text_normalization.hi.taggers.power import PowerFst
 from indic_text_normalization.hi.taggers.scientific import ScientificFst
 from indic_text_normalization.hi.verbalizers.date import DateFst as vDateFst
-from indic_text_normalization.hi.verbalizers.ordinal import OrdinalFst as vOrdinalFst
 from indic_text_normalization.hi.verbalizers.time import TimeFst as vTimeFst
 
 
@@ -88,7 +90,7 @@ class ClassifyFst(GraphFst):
             self.fst = pynini.Far(far_file, mode="r")["tokenize_and_classify"]
             logging.info(f"ClassifyFst.fst was restored from {far_file}.")
         else:
-            logging.info(f"Creating ClassifyFst grammars.")
+            logging.info("Creating ClassifyFst grammars.")
 
             start_time = time.time()
             cardinal = CardinalFst(deterministic=deterministic)
@@ -175,7 +177,6 @@ class ClassifyFst(GraphFst):
             start_time = time.time()
             v_time = vTimeFst(cardinal=cardinal)
             v_time_graph = v_time.fst
-            v_ordinal = vOrdinalFst(deterministic=deterministic)
             v_date = vDateFst()
             v_date_graph = v_date.fst
             time_final = pynini.compose(time_graph, v_time_graph)
@@ -261,8 +262,31 @@ class ClassifyFst(GraphFst):
             graph = delete_space + graph + delete_space
             graph = pynini.union(graph, punct)
 
+            # Rewrite joiner hyphens between digits and Hindi letters to spaces.
+            # Example: "3.14-वहाँ" -> "3.14 वहाँ"
+            # This prevents "π = 3.1415...-वहाँ" from being glued into one token.
+            hi_block = pynini.union(*[chr(i) for i in range(0x0900, 0x0980)]).optimize()
+            left_ctx = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT).optimize()
+            right_ctx = hi_block
+            joiner_hyphen_to_space = pynini.cdrewrite(pynini.cross("-", " "), left_ctx, right_ctx, NEMO_SIGMA)
+
             start_time = time.time()
-            self.fst = graph.optimize()
+            # Also ensure glued equals patterns like "π=3.1415" tokenize cleanly without enumerating symbols.
+            # Only apply when the left side is NOT a digit (so we don't change "10-2=8" tight math behavior).
+            non_digit_left = pynini.difference(
+                NEMO_NOT_SPACE, pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT)
+            ).optimize()
+            digit_right = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT).optimize()
+            equals_to_spaced = pynini.cdrewrite(pynini.cross("=", " = "), non_digit_left, digit_right, NEMO_SIGMA)
+
+            # Also separate em-dash glued to a following number, e.g. "—3.14" so decimals can match.
+            emdash_to_spaced = pynini.cdrewrite(pynini.cross("—", "— "), "", digit_right, NEMO_SIGMA)
+
+            # And convert em-dash used as a joiner between digits and Hindi letters into a space:
+            #   "3.14—और" -> "3.14 और"
+            emdash_joiner_to_space = pynini.cdrewrite(pynini.cross("—", " "), digit_right, hi_block, NEMO_SIGMA)
+
+            self.fst = (emdash_joiner_to_space @ emdash_to_spaced @ equals_to_spaced @ joiner_hyphen_to_space @ graph).optimize()
             logging.debug(f"final graph optimization: {time.time() - start_time:.2f}s -- {self.fst.num_states()} nodes")
 
             if far_file:

@@ -18,6 +18,7 @@ from pynini.lib import pynutil
 from indic_text_normalization.ta.graph_utils import (
     GraphFst,
     NEMO_DIGIT,
+    NEMO_TA_DIGIT,
     insert_space,
 )
 from indic_text_normalization.ta.utils import get_abs_path
@@ -30,6 +31,10 @@ arabic_to_tamil_digit = pynini.string_map([
     ("5", "௫"), ("6", "௬"), ("7", "௭"), ("8", "௮"), ("9", "௯")
 ]).optimize()
 arabic_to_tamil_number = pynini.closure(arabic_to_tamil_digit).optimize()
+
+# Create a graph that deletes commas from digit sequences (e.g., 1,000,001.50)
+any_digit = pynini.union(NEMO_DIGIT, NEMO_TA_DIGIT)
+delete_commas = (any_digit + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)).optimize()
 
 
 def get_quantity(decimal: 'pynini.FstLike', cardinal_up_to_hundred: 'pynini.FstLike') -> 'pynini.FstLike':
@@ -80,8 +85,8 @@ class DecimalFst(GraphFst):
         ).optimize()
         self.graph = (tamil_digit_sequence | arabic_digit_sequence).optimize()
 
-        # Handle both "." and "," as decimal separators (common in Indian number systems)
-        point = pynutil.delete(pynini.union(".", ","))
+        # Decimal separator
+        point = pynutil.delete(".")
 
         optional_graph_negative = pynini.closure(
             pynutil.insert("negative: ") + pynini.cross("-", "\"true\"") + insert_space,
@@ -89,12 +94,16 @@ class DecimalFst(GraphFst):
             1,
         )
 
+        # Add comma support for integer parts
+        integer_with_commas = pynini.compose(delete_commas, cardinal_graph).optimize()
+        integer_graph = pynutil.add_weight(integer_with_commas, -0.1) | cardinal_graph
+
         self.graph_fractional = pynutil.insert("fractional_part: \"") + self.graph + pynutil.insert("\"")
-        self.graph_integer = pynutil.insert("integer_part: \"") + cardinal_graph + pynutil.insert("\"")
+        self.graph_integer = pynutil.insert("integer_part: \"") + integer_graph + pynutil.insert("\"")
 
         final_graph_wo_sign = self.graph_integer + point + insert_space + self.graph_fractional
 
-        self.final_graph_wo_negative = final_graph_wo_sign | get_quantity(final_graph_wo_sign, cardinal_graph)
+        self.final_graph_wo_negative = final_graph_wo_sign | get_quantity(final_graph_wo_sign, integer_graph)
 
         final_graph = optional_graph_negative + self.final_graph_wo_negative
 

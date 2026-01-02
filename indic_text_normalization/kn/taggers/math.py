@@ -86,12 +86,9 @@ class MathFst(GraphFst):
         point = pynutil.delete(".") + pynutil.insert(" ದಶಮಲವ ")
         decimal_graph = (integer_graph + point + fractional_graph).optimize()
 
-        # Minimal symbol support needed for π equations
-        pi_graph = pynini.cross("π", "ಪೈ").optimize()
-
         # Operands supported by math expressions
-        # Prefer decimals when they match, otherwise fall back to integers / pi.
-        operand_graph = (pynutil.add_weight(decimal_graph, -0.1) | integer_graph | pi_graph).optimize()
+        # Prefer decimals when they match, otherwise fall back to integers.
+        operand_graph = (pynutil.add_weight(decimal_graph, -0.1) | integer_graph).optimize()
 
         # Optional space around operators
         optional_space = pynini.closure(NEMO_SPACE, 0, 1)

@@ -6,6 +6,7 @@ from pynini.examples import plurals
 from pynini.lib import pynutil
 
 from indic_text_normalization.te.graph_utils import NEMO_NOT_SPACE, NEMO_SIGMA, GraphFst
+from indic_text_normalization.te.utils import get_abs_path
 
 
 class PunctuationFst(GraphFst):
@@ -33,6 +34,11 @@ class PunctuationFst(GraphFst):
 
         punct = pynini.union(*self.punct_marks)
         punct = pynini.closure(punct, 1)
+
+        # Verbalize "=" everywhere (not only inside MathFst) using the shared math operator mapping.
+        math_operations = pynini.string_file(get_abs_path("data/math_operations.tsv"))
+        equals_spoken = pynini.union("=") @ math_operations
+        punct = plurals._priority_union(equals_spoken, punct, NEMO_SIGMA)
 
         emphasis = (
             pynini.accep("<")

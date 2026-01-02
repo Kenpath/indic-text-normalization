@@ -52,6 +52,7 @@ class MathFst(GraphFst):
         super().__init__(name="math", kind="classify", deterministic=deterministic)
 
         cardinal_graph = cardinal.final_graph
+        digit_word_graph = (cardinal.digit | cardinal.zero).optimize()
         
         # Support both Telugu and Arabic digits
         # Telugu digits input
@@ -65,15 +66,27 @@ class MathFst(GraphFst):
             arabic_to_telugu_number @ cardinal_graph
         ).optimize()
         
-        # Combined number graph
-        number_graph = telugu_number_graph | arabic_number_graph
+        # Combined integer graph
+        integer_graph = (telugu_number_graph | arabic_number_graph).optimize()
 
-        # Minimal symbol support needed for π equations
-        pi_graph = pynini.cross("π", "పై").optimize()
+        # Decimal support inside math (needed for π equations)
+        # Speak fractional digits digit-by-digit and use "దశాంశం" as decimal separator.
+        telugu_frac = pynini.compose(
+            pynini.closure(NEMO_TE_DIGIT, 1),
+            digit_word_graph + pynini.closure(insert_space + digit_word_graph),
+        ).optimize()
+        arabic_frac = pynini.compose(
+            pynini.closure(NEMO_DIGIT, 1),
+            arabic_to_telugu_number @ (digit_word_graph + pynini.closure(insert_space + digit_word_graph)),
+        ).optimize()
+        fractional_graph = (telugu_frac | arabic_frac).optimize()
+
+        point = pynutil.delete(".") + pynutil.insert(" దశాంశం ")
+        decimal_graph = (integer_graph + point + fractional_graph).optimize()
 
         # Operands supported by math expressions
-        # Prefer numbers when they match, otherwise fall back to pi.
-        operand_graph = (number_graph | pi_graph).optimize()
+        # Prefer decimals when they match, otherwise fall back to integers.
+        operand_graph = (pynutil.add_weight(decimal_graph, -0.1) | integer_graph).optimize()
 
         # Optional space around operators
         optional_space = pynini.closure(NEMO_SPACE, 0, 1)

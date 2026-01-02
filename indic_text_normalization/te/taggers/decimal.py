@@ -67,10 +67,23 @@ class DecimalFst(GraphFst):
     def __init__(self, cardinal: GraphFst, deterministic: bool = True):
         super().__init__(name="decimal", kind="classify", deterministic=deterministic)
 
+        # Convert Arabic digits to Telugu for decimal parts
+        arabic_to_telugu_digit = pynini.string_map([
+            ("0", "౦"), ("1", "౧"), ("2", "౨"), ("3", "౩"), ("4", "౪"),
+            ("5", "౫"), ("6", "౬"), ("7", "౭"), ("8", "౮"), ("9", "౯")
+        ]).optimize()
+        arabic_to_telugu_number = pynini.closure(arabic_to_telugu_digit).optimize()
+
         graph_digit = cardinal.digit | cardinal.zero
         cardinal_graph = cardinal.final_graph
 
-        self.graph = graph_digit + pynini.closure(insert_space + graph_digit).optimize()
+        # Support both Telugu and Arabic digits for fractional part
+        telugu_fractional = graph_digit + pynini.closure(insert_space + graph_digit)
+        arabic_fractional = pynini.compose(
+            pynini.closure(NEMO_DIGIT, 1) + pynini.closure(NEMO_DIGIT),
+            arabic_to_telugu_number @ (graph_digit + pynini.closure(insert_space + graph_digit))
+        )
+        self.graph = (telugu_fractional | arabic_fractional).optimize()
 
         point = pynutil.delete(".")
 
