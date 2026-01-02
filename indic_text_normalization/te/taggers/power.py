@@ -31,8 +31,8 @@ from indic_text_normalization.te.graph_utils import (
 class PowerFst(GraphFst):
     """
     Finite state transducer for classifying powers/exponents with superscripts, e.g.
-        "10⁻⁷" -> power { base: "दस" sign: "ऋणात्मक" exponent: "सात" }
-        "2³" -> power { base: "दो" exponent: "तीन" }
+        "10⁻⁷" -> power { base: "పది" sign: "మైనస్" exponent: "ఏడు" }
+        "2³" -> power { base: "రెండు" exponent: "మూడు" }
 
     Args:
         cardinal: CardinalFst
@@ -44,28 +44,28 @@ class PowerFst(GraphFst):
 
         cardinal_graph = cardinal.final_graph
 
-        # Base number (regular digits - Hindi or Arabic)
-        hindi_base_input = pynini.closure(NEMO_TE_DIGIT, 1)
-        hindi_base = pynini.compose(hindi_base_input, cardinal_graph).optimize()
+        # Base number (regular digits - Telugu or Arabic)
+        telugu_base_input = pynini.closure(NEMO_TE_DIGIT, 1)
+        telugu_base = pynini.compose(telugu_base_input, cardinal_graph).optimize()
         
         arabic_base_input = pynini.closure(NEMO_DIGIT, 1)
-        arabic_to_hindi = pynini.closure(
+        arabic_to_telugu = pynini.closure(
             pynini.string_map([
                 ("0", "౦"), ("1", "౧"), ("2", "౨"), ("3", "౩"), ("4", "౪"),
                 ("5", "౫"), ("6", "౬"), ("7", "౭"), ("8", "౮"), ("9", "౯")
             ])
         ).optimize()
-        arabic_base = pynini.compose(arabic_base_input, arabic_to_hindi @ cardinal_graph).optimize()
+        arabic_base = pynini.compose(arabic_base_input, arabic_to_telugu @ cardinal_graph).optimize()
         
-        base_number = hindi_base | arabic_base
+        base_number = telugu_base | arabic_base
 
         # Superscript exponent
         # Optional sign
         optional_sign = pynini.closure(
             pynutil.insert('sign: "')
             + (
-                pynini.cross(NEMO_SUPERSCRIPT_MINUS, "ఋణాత్మక")
-                | pynini.cross(NEMO_SUPERSCRIPT_PLUS, "ధనాత్మక")
+                pynini.cross(NEMO_SUPERSCRIPT_MINUS, "మైనస్")
+                | pynini.cross(NEMO_SUPERSCRIPT_PLUS, "ప్లస్")
             )
             + pynutil.insert('"')
             + insert_space,
@@ -77,7 +77,7 @@ class PowerFst(GraphFst):
         superscript_number = pynini.closure(NEMO_SUPERSCRIPT_DIGIT, 1)
         exponent_value = pynini.compose(
             superscript_number,
-            pynini.closure(superscript_to_digit) @ arabic_to_hindi @ cardinal_graph
+            pynini.closure(superscript_to_digit) @ arabic_to_telugu @ cardinal_graph
         ).optimize()
 
         # Complete power expression

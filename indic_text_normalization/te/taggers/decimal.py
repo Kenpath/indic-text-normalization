@@ -15,10 +15,19 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.graph_utils import GraphFst, insert_space
+from indic_text_normalization.te.graph_utils import GraphFst, NEMO_DIGIT, NEMO_TE_DIGIT, insert_space
 from indic_text_normalization.te.utils import get_abs_path
 
 quantities = pynini.string_file(get_abs_path("data/numbers/thousands.tsv"))
+
+# Create a graph that deletes commas from digit sequences
+# This handles Indian number format where commas are separators (e.g., 1,000,001.50)
+any_digit = pynini.union(NEMO_DIGIT, NEMO_TE_DIGIT)
+# Pattern: digit (comma? digit)* - accepts digits with optional commas, deletes commas
+delete_commas = (
+    any_digit
+    + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+).optimize()
 
 
 def get_quantity(decimal: 'pynini.FstLike', cardinal_up_to_hundred: 'pynini.FstLike') -> 'pynini.FstLike':
@@ -71,8 +80,31 @@ class DecimalFst(GraphFst):
             1,
         )
 
+        # Add comma support for integer parts
+        # Telugu with commas
+        telugu_integer_with_commas = pynini.compose(delete_commas, cardinal_graph).optimize()
+        telugu_integer_combined = pynutil.add_weight(telugu_integer_with_commas, -0.1) | cardinal_graph
+
+        # Arabic digits need conversion
+        arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
+
+        # Arabic with commas
+        arabic_integer_with_commas = pynini.compose(
+            delete_commas,
+            arabic_digit_input @ cardinal_graph
+        ).optimize()
+
+        # Regular Arabic digits
+        arabic_integer_graph = arabic_digit_input @ cardinal_graph
+
+        # Combined Arabic graph
+        arabic_integer_combined = pynutil.add_weight(arabic_integer_with_commas, -0.1) | arabic_integer_graph
+
+        # Combined integer graph (supports both Telugu and Arabic digits, with and without commas)
+        integer_graph = telugu_integer_combined | arabic_integer_combined
+
         self.graph_fractional = pynutil.insert("fractional_part: \"") + self.graph + pynutil.insert("\"")
-        self.graph_integer = pynutil.insert("integer_part: \"") + cardinal_graph + pynutil.insert("\"")
+        self.graph_integer = pynutil.insert("integer_part: \"") + integer_graph + pynutil.insert("\"")
 
         final_graph_wo_sign = self.graph_integer + point + insert_space + self.graph_fractional
 

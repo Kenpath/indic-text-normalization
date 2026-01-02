@@ -28,6 +28,7 @@ from indic_text_normalization.hi.verbalizers.telephone import TelephoneFst
 from indic_text_normalization.hi.verbalizers.time import TimeFst
 from indic_text_normalization.hi.verbalizers.whitelist import WhiteListFst
 from indic_text_normalization.hi.verbalizers.power import PowerFst
+from indic_text_normalization.hi.verbalizers.scientific import ScientificFst
 
 
 class VerbalizeFst(GraphFst):
@@ -80,6 +81,9 @@ class VerbalizeFst(GraphFst):
         power = PowerFst(deterministic=deterministic)
         power_graph = power.fst
 
+        scientific = ScientificFst(deterministic=deterministic)
+        scientific_graph = scientific.fst
+
         graph = (
             cardinal_graph
             | decimal_graph
@@ -90,6 +94,7 @@ class VerbalizeFst(GraphFst):
             | money_graph
             | ordinal_graph
             | math_graph
+            | scientific_graph
             | whitelist_graph
             | telephone_graph
             | electronic_graph

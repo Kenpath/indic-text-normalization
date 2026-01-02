@@ -31,6 +31,21 @@ NEMO_TE_DIGIT = pynini.union("౦", "౧", "౨", "౩", "౪", "౫", "౬", "�
 NEMO_TE_NON_ZERO = pynini.union("౧", "౨", "౩", "౪", "౫", "౬", "౭", "౮", "౯").optimize()
 NEMO_TE_ZERO = "౦"
 
+# Superscript characters for powers/exponents
+NEMO_SUPERSCRIPT_DIGIT = pynini.union("⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹").optimize()
+NEMO_SUPERSCRIPT_MINUS = "⁻"
+NEMO_SUPERSCRIPT_PLUS = "⁺"
+
+# Mapping from superscript to regular digits
+superscript_to_digit = pynini.string_map([
+    ("⁰", "0"), ("¹", "1"), ("²", "2"), ("³", "3"), ("⁴", "4"),
+    ("⁵", "5"), ("⁶", "6"), ("⁷", "7"), ("⁸", "8"), ("⁹", "9")
+]).optimize()
+
+superscript_to_sign = pynini.string_map([
+    ("⁻", "-"), ("⁺", "+")
+]).optimize()
+
 TE_DEDH = "ఒకటిన్నర"  # 1.5
 TE_DHAI = "రెండున్నర"  # 2.5
 TE_SAVVA = "సవ్వ"  # quarter more (1.25)

@@ -19,6 +19,9 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.te.graph_utils import (
+    NEMO_DIGIT,
+    NEMO_TE_DIGIT,
+    NEMO_SIGMA,
     NEMO_SPACE,
     NEMO_WHITE_SPACE,
     GraphFst,
@@ -33,7 +36,9 @@ from indic_text_normalization.te.taggers.fraction import FractionFst
 from indic_text_normalization.te.taggers.measure import MeasureFst
 from indic_text_normalization.te.taggers.money import MoneyFst
 from indic_text_normalization.te.taggers.ordinal import OrdinalFst
+from indic_text_normalization.te.taggers.power import PowerFst
 from indic_text_normalization.te.taggers.punctuation import PunctuationFst
+from indic_text_normalization.te.taggers.scientific import ScientificFst
 from indic_text_normalization.te.taggers.telephone import TelephoneFst
 from indic_text_normalization.te.taggers.time import TimeFst
 from indic_text_normalization.te.taggers.whitelist import WhiteListFst
@@ -107,6 +112,12 @@ class ClassifyFst(GraphFst):
             math = MathFst(cardinal=cardinal, deterministic=deterministic)
             math_graph = math.fst
 
+            power = PowerFst(cardinal=cardinal, deterministic=deterministic)
+            power_graph = power.fst
+
+            scientific = ScientificFst(cardinal=cardinal, deterministic=deterministic)
+            scientific_graph = scientific.fst
+
             whitelist_graph = WhiteListFst(
                 input_case=input_case, deterministic=deterministic, input_file=whitelist
             ).fst
@@ -132,6 +143,8 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(ordinal_graph, 0.9)  # Before cardinals
                 | pynutil.add_weight(cardinal_graph, 0.95)  # Before math
                 | pynutil.add_weight(math_graph, 1.0)  # Math expressions after cardinals
+                | pynutil.add_weight(scientific_graph, 1.08)  # Higher priority for scientific notation
+                | pynutil.add_weight(power_graph, 1.09)  # Higher priority for superscripts
             )
 
             word_graph = WordFst(punctuation=punctuation, deterministic=deterministic).fst
@@ -164,7 +177,15 @@ class ClassifyFst(GraphFst):
             graph = delete_space + graph + delete_space
             graph = pynini.union(graph, punct)
 
-            self.fst = graph.optimize()
+            # Replace hyphen used as a joiner between digits and Telugu letters with a SPACE, e.g.
+            #   "3.14-అక్కడ" -> "3.14 అక్కడ"
+            # This prevents "π = 3.1415...-అక్కడ" from being glued into one token.
+            te_block = pynini.union(*[chr(i) for i in range(0x0C00, 0x0C80)]).optimize()
+            left_ctx = pynini.union(NEMO_DIGIT, NEMO_TE_DIGIT).optimize()
+            right_ctx = te_block
+            joiner_hyphen_to_space = pynini.cdrewrite(pynini.cross("-", " "), left_ctx, right_ctx, NEMO_SIGMA)
+
+            self.fst = (joiner_hyphen_to_space @ graph).optimize()
 
             if far_file:
                 generator_main(far_file, {"tokenize_and_classify": self.fst})

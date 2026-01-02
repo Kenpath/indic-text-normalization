@@ -1,4 +1,4 @@
-# Copyright (c) 2024, NVIDIA CORPORATION & AFFILIATES.  All rights reserved.
+# Copyright (c) 2025
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,22 +15,30 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.te.graph_utils import NEMO_NOT_QUOTE, GraphFst, insert_space
+from indic_text_normalization.hi.graph_utils import NEMO_NOT_QUOTE, GraphFst, insert_space
 
 
-class PowerFst(GraphFst):
+class ScientificFst(GraphFst):
     """
-    Finite state transducer for verbalizing power, e.g.
-        power { base: "పది" sign: "మైనస్" exponent: "ఏడు" } -> పది ఘాత మైనస్ ఏడు
-        power { base: "రెండు" exponent: "మూడు" } -> రెండు ఘాత మూడు
+    Verbalize scientific-notation tokens, e.g.
+      scientific { mantissa: "दस दशमलव एक" exponent: "पाँच" } ->
+        दस दशमलव एक गुणा दस पावर पाँच
+
+      scientific { mantissa: "दस दशमलव एक" sign: "ऋणात्मक" exponent: "पाँच" } ->
+        दस दशमलव एक गुणा दस पावर ऋणात्मक पाँच
     """
 
     def __init__(self, deterministic: bool = True):
-        super().__init__(name="power", kind="verbalize", deterministic=deterministic)
+        super().__init__(name="scientific", kind="verbalize", deterministic=deterministic)
 
         delete_space = pynutil.delete(" ")
-        base = pynutil.delete('base: "') + pynini.closure(NEMO_NOT_QUOTE, 1) + pynutil.delete('"')
-        
+
+        mantissa = (
+            pynutil.delete('mantissa: "')
+            + pynini.closure(NEMO_NOT_QUOTE, 1)
+            + pynutil.delete('"')
+        )
+
         optional_sign = pynini.closure(
             delete_space
             + pynutil.delete('sign: "')
@@ -40,7 +48,7 @@ class PowerFst(GraphFst):
             0,
             1,
         )
-        
+
         exponent = (
             delete_space
             + pynutil.delete('exponent: "')
@@ -48,7 +56,5 @@ class PowerFst(GraphFst):
             + pynutil.delete('"')
         )
 
-        graph = base + pynutil.insert(" ఘాత ") + optional_sign + exponent
-
-        delete_tokens = self.delete_tokens(graph)
-        self.fst = delete_tokens.optimize()
+        graph = mantissa + pynutil.insert(" गुणा दस पावर ") + optional_sign + exponent
+        self.fst = self.delete_tokens(graph).optimize()

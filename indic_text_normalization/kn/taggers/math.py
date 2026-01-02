@@ -142,8 +142,8 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
         )
 
-        # Special-case: tight dash in patterns like "10-2=8" should be treated as a range/to ("ರಿಂದ"),
-        # while spaced dash "10 - 2" is treated as minus ("ಮೈನಸ್") via math_operations.tsv.
+        # Special-case: tight dash patterns
+        # Pattern 1: "10-2=8" should be treated as "ರಿಂದ" (from) - tight minus with equals
         extended_math_tight_range = (
             pynutil.insert("left: \"")
             + operand_graph
@@ -166,7 +166,28 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
         )
 
-        final_graph = pynutil.add_weight(extended_math_tight_range, -0.2) | math_expression | extended_math
+        # Pattern 2: "10-2 ದೊಡ್ಡ ಸಂಖ್ಯೆ" should also be treated as "ರಿಂದ" (from) - tight minus without equals
+        # This matches number-number (no spaces around "-") and outputs a math token for just the pair.
+        math_expression_tight_minus_text = (
+            pynutil.insert("left: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "ರಿಂದ")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("right: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+        )
+
+        final_graph = (
+            pynutil.add_weight(extended_math_tight_range, -0.2)
+            | pynutil.add_weight(math_expression_tight_minus_text, -0.15)
+            | math_expression
+            | extended_math
+        )
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph.optimize()
 
