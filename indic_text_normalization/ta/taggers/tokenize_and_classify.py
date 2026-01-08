@@ -130,7 +130,7 @@ class ClassifyFst(GraphFst):
 
             classify = (
                 pynutil.add_weight(whitelist_graph, 1.01)
-                | pynutil.add_weight(telephone_graph, 1.02)  # Telephone highest priority (numbers with dashes)
+                | pynutil.add_weight(telephone_graph, 0.5)  # Telephone highest priority (numbers with dashes)
                 | pynutil.add_weight(measure_graph, 1.03)  # Measure before date/time (12 kg should be measure)
                 | pynutil.add_weight(date_graph, 1.04)  # Date before time (dates with separators)
                 | pynutil.add_weight(time_graph, 1.05)  # Higher priority for times

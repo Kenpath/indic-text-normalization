@@ -77,8 +77,8 @@ class TelephoneFst(GraphFst):
             + pynini.closure(separator + digit_group, 1)  # At least one separator required
         )
 
-        # Phone number without separator but with 10+ consecutive digits (mobile/landline)
-        consecutive_digits_10_plus = pynini.closure(single_digit, 10)
+        # Phone number without separator but with 7+ consecutive digits (mobile/landline/general)
+        consecutive_digits_7_plus = pynini.closure(single_digit, 7)
 
         # Country code with + 
         country_code_digits = pynini.closure(single_digit, 1, 3)
@@ -98,10 +98,10 @@ class TelephoneFst(GraphFst):
             + pynutil.insert("\"")
         )
 
-        # Number part without separator (10+ digits like mobile numbers)
+        # Number part without separator (7+ digits like mobile numbers)
         number_consecutive = (
             pynutil.insert("number_part: \"")
-            + consecutive_digits_10_plus
+            + consecutive_digits_7_plus
             + pynutil.insert("\"")
         )
 
@@ -116,15 +116,15 @@ class TelephoneFst(GraphFst):
         graph_with_country_consecutive = (
             country_code_with_plus
             + pynutil.insert("number_part: \"")
-            + consecutive_digits_10_plus
+            + consecutive_digits_7_plus
             + pynutil.insert("\"")
         )
 
         graph = (
-            pynutil.add_weight(graph_with_country_sep, 0.8)
-            | pynutil.add_weight(graph_with_country_consecutive, 0.85)
-            | pynutil.add_weight(number_with_separator, 0.9)
-            | pynutil.add_weight(number_consecutive, 0.95)
+            pynutil.add_weight(graph_with_country_sep, 0.1)
+            | pynutil.add_weight(graph_with_country_consecutive, 0.1)
+            | pynutil.add_weight(number_with_separator, 0.1)
+            | pynutil.add_weight(number_consecutive, 0.15)
         )
 
         self.final = graph.optimize()

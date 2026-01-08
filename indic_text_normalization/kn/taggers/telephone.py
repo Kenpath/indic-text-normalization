@@ -43,6 +43,9 @@ landline_context = pynini.string_file(get_abs_path("data/telephone/landline_cont
 credit_context = pynini.string_file(get_abs_path("data/telephone/credit_context.tsv"))
 pincode_context = pynini.string_file(get_abs_path("data/telephone/pincode_context.tsv"))
 
+# Pattern to match any digit (Arabic or Kannada) for telephone numbers
+any_digit = pynini.union(NEMO_DIGIT, NEMO_KN_DIGIT)
+
 # Reusable optimized graph for any digit token
 ascii_digit_to_word = pynini.string_map(
     [
@@ -216,6 +219,79 @@ def generate_pincode(context_keywords: pynini.Fst) -> pynini.Fst:
     ).optimize()
 
 
+def generate_general_telephone() -> pynini.Fst:
+    """
+    General telephone number pattern that matches any sequence of digits
+    with +, -, spaces and converts them digit-by-digit.
+    This handles edge cases that don't match specific mobile/landline patterns.
+    Minimum 7 digits to avoid matching short numbers.
+    """
+    # Single digit conversion
+    # Note: num_token includes ascii_digit_to_word, so if any_digit matches ASCII "1",
+    # num_token matches ASCII "1" -> "ಒಂದು". compose works.
+    single_digit = pynini.compose(any_digit, num_token) + insert_space
+    
+    # Separators: - or . (deleted, not converted)
+    separator = pynini.union(
+        pynini.cross("-", ""),
+        pynini.cross(".", ""),
+    )
+    
+    # Number part: at least 7 digits (can have separators)
+    # Pattern 1: 7+ consecutive digits (no separators)
+    consecutive_digits = pynini.closure(single_digit, 7)
+    
+    # Pattern 2: digits with separators (at least 7 digits total)
+    # Pattern: digit (separator? digit)* ensuring at least 7 digits
+    digit_sequence_with_sep = (
+        single_digit  # First digit (required)
+        + pynini.closure(pynini.closure(separator, 0, 1) + single_digit, 6)  # At least 6 more digits
+    )
+    
+    number_part_digits = consecutive_digits | digit_sequence_with_sep
+    
+    # Optional country code with + (with or without space after country code)
+    country_code_digits = pynini.closure(single_digit, 1, 3)
+    country_code_with_plus = (
+        pynutil.insert("country_code: \"")
+        + pynini.cross("+", "ಪ್ಲಸ್")
+        + insert_space
+        + country_code_digits
+        + pynutil.insert("\" ")
+        + pynini.closure(delete_space, 0, 1)  # Optional space after country code
+    )
+    
+    # Optional extension at the end (1-3 digits after space)
+    extension_optional = pynini.closure(
+        pynutil.insert("extension: \"")
+        + pynini.closure(single_digit, 1, 3)
+        + pynutil.insert("\" ")
+        + delete_space,
+        0,
+        1,
+    )
+    
+    # Number with country code (no leading zero handling - country code handles it)
+    number_with_country = (
+        country_code_with_plus
+        + pynutil.insert("number_part: \"")
+        + number_part_digits
+        + pynutil.insert("\" ")
+        + delete_space
+    )
+    
+    # Number without country code (handle leading zero if present)
+    number_without_country = (
+        pynutil.insert("number_part: \"")
+        + leading_zero
+        + number_part_digits
+        + pynutil.insert("\" ")
+        + delete_space
+    )
+    
+    return (pynini.union(number_with_country, number_without_country) + extension_optional).optimize()
+
+
 class TelephoneFst(GraphFst):
     """
     Finite state transducer for tagging telephone numbers, e.g.
@@ -235,12 +311,14 @@ class TelephoneFst(GraphFst):
         landline = generate_landline(landline_context)
         credit_card = generate_credit(credit_context)
         pincode = generate_pincode(pincode_context)
+        general_telephone = generate_general_telephone()
 
         graph = (
-            pynutil.add_weight(mobile_number, 0.7)
-            | pynutil.add_weight(landline, 0.8)
-            | pynutil.add_weight(credit_card, 0.9)
-            | pynutil.add_weight(pincode, 1)
+            pynutil.add_weight(mobile_number, 0.1)
+            | pynutil.add_weight(landline, 0.1)
+            | pynutil.add_weight(credit_card, 1.5)
+            | pynutil.add_weight(pincode, 1.5)
+            | pynutil.add_weight(general_telephone, 0.15)  # Fallback for edge cases
         )
 
         self.final = graph.optimize()

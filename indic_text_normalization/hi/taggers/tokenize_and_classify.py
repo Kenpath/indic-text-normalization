@@ -211,7 +211,7 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(cardinal_graph, 1.1)
                 | pynutil.add_weight(ordinal_graph, 1.1)
                 | pynutil.add_weight(money_graph, 1.1)
-                | pynutil.add_weight(telephone_graph, 0.9)  # Higher priority than cardinal (lower weight = higher priority)
+                | pynutil.add_weight(telephone_graph, 0.5)  # Higher priority than cardinal (lower weight = higher priority)
                 | pynutil.add_weight(electronic_graph, 1.11)
                 | pynutil.add_weight(fraction_graph, 1.1)
                 | pynutil.add_weight(math_graph, 1.1)

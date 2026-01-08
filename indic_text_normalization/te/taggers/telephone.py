@@ -32,9 +32,8 @@ TE_ZERO_DIGIT = pynini.union("0", "౦")
 TE_MOBILE_START_DIGITS = pynini.union("౬", "౭", "౮", "౯", "6", "7", "8", "9").optimize()
 TE_LANDLINE_START_DIGITS = pynini.union("౨", "౩", "౪", "౬", "2", "3", "4", "6").optimize()
 
-delete_zero = pynutil.delete(TE_ZERO_DIGIT)
-delete_zero_optional = pynini.closure(delete_zero, 0, 1)
-insert_shunya = pynutil.insert('సున్నా') + insert_space
+# Logic to handle optional leading zero
+leading_zero = pynini.closure(pynini.cross(TE_ZERO_DIGIT, "సున్నా") + insert_space, 0, 1)
 
 # Load the number mappings from the TSV file
 digit_to_word = pynini.string_file(get_abs_path("data/telephone/number.tsv"))
@@ -45,15 +44,36 @@ landline_context = pynini.string_file(get_abs_path("data/telephone/landline_cont
 credit_context = pynini.string_file(get_abs_path("data/telephone/credit_context.tsv"))
 pincode_context = pynini.string_file(get_abs_path("data/telephone/pincode_context.tsv"))
 
+# Pattern to match any digit (Arabic or Telugu) for telephone numbers
+any_digit = pynini.union(NEMO_DIGIT, NEMO_TE_DIGIT)
+
 # Reusable optimized graph for any digit token
-num_token = pynini.union(digit_to_word, digits, zero).optimize()
+ascii_digit_to_word = pynini.string_map(
+    [
+        ("0", "సున్నా"),
+        ("1", "ఒకటి"),
+        ("2", "రెండు"),
+        ("3", "మూడు"),
+        ("4", "నాలుగు"),
+        ("5", "ఐదు"),
+        ("6", "ఆరు"),
+        ("7", "ఏడు"),
+        ("8", "ఎనిమిది"),
+        ("9", "తొమ్మిది"),
+    ]
+).optimize()
+num_token = pynini.union(digit_to_word, digits, zero, ascii_digit_to_word).optimize()
 
 
 def generate_mobile(context_keywords: pynini.Fst) -> pynini.Fst:
     context_before, context_after = get_context(context_keywords)
 
     # Filter cardinals to only include allowed digits
-    mobile_start_digit = pynini.union(TE_MOBILE_START_DIGITS @ digits, TE_MOBILE_START_DIGITS @ digit_to_word)
+    mobile_start_digit = pynini.union(
+        TE_MOBILE_START_DIGITS @ digits, 
+        TE_MOBILE_START_DIGITS @ digit_to_word,
+        TE_MOBILE_START_DIGITS @ ascii_digit_to_word
+    )
 
     country_code_digits = pynini.closure(num_token + insert_space, 1, 3)
     country_code = (
@@ -81,8 +101,7 @@ def generate_mobile(context_keywords: pynini.Fst) -> pynini.Fst:
     number_without_country = (
         pynutil.insert("number_part: \"")
         + context_before
-        + delete_zero_optional
-        + insert_shunya
+        + leading_zero
         + number_part
         + context_after
         + pynutil.insert("\" ")
@@ -105,10 +124,14 @@ def get_landline(std_length: int, context_keywords: pynini.Fst) -> pynini.Fst:
     context_before, context_after = get_context(context_keywords)
 
     # Filter cardinals to only include allowed digits
-    landline_start_digit = pynini.union(TE_LANDLINE_START_DIGITS @ digits, TE_LANDLINE_START_DIGITS @ digit_to_word)
+    landline_start_digit = pynini.union(
+        TE_LANDLINE_START_DIGITS @ digits, 
+        TE_LANDLINE_START_DIGITS @ digit_to_word,
+        TE_LANDLINE_START_DIGITS @ ascii_digit_to_word
+    )
 
     std_code_graph = (
-        delete_zero_optional + insert_shunya + pynini.closure(num_token + insert_space, std_length, std_length)
+        leading_zero + pynini.closure(num_token + insert_space, std_length, std_length)
     )
 
     landline_digit_count = 9 - std_length
@@ -121,7 +144,7 @@ def get_landline(std_length: int, context_keywords: pynini.Fst) -> pynini.Fst:
     separator_optional = pynini.closure(pynini.union(pynini.cross("-", ""), pynini.cross(".", "")), 0, 1)
 
     std_code_in_brackets = (
-        delete_zero_optional
+        leading_zero
         + delete_space
         + pynutil.delete("(")
         + pynini.closure(delete_space, 0, 1)
@@ -197,6 +220,77 @@ def generate_pincode(context_keywords: pynini.Fst) -> pynini.Fst:
     ).optimize()
 
 
+def generate_general_telephone() -> pynini.Fst:
+    """
+    General telephone number pattern that matches any sequence of digits
+    with +, -, spaces and converts them digit-by-digit.
+    This handles edge cases that don't match specific mobile/landline patterns.
+    Minimum 7 digits to avoid matching short numbers.
+    """
+    # Single digit conversion
+    single_digit = pynini.compose(any_digit, num_token) + insert_space
+    
+    # Separators: - or . (deleted, not converted)
+    separator = pynini.union(
+        pynini.cross("-", ""),
+        pynini.cross(".", ""),
+    )
+    
+    # Number part: at least 7 digits (can have separators)
+    # Pattern 1: 7+ consecutive digits (no separators)
+    consecutive_digits = pynini.closure(single_digit, 7)
+    
+    # Pattern 2: digits with separators (at least 7 digits total)
+    # Pattern: digit (separator? digit)* ensuring at least 7 digits
+    digit_sequence_with_sep = (
+        single_digit  # First digit (required)
+        + pynini.closure(pynini.closure(separator, 0, 1) + single_digit, 6)  # At least 6 more digits
+    )
+    
+    number_part_digits = consecutive_digits | digit_sequence_with_sep
+    
+    # Optional country code with + (with or without space after country code)
+    country_code_digits = pynini.closure(single_digit, 1, 3)
+    country_code_with_plus = (
+        pynutil.insert("country_code: \"")
+        + pynini.cross("+", "ప్లస్")
+        + insert_space
+        + country_code_digits
+        + pynutil.insert("\" ")
+        + pynini.closure(delete_space, 0, 1)  # Optional space after country code
+    )
+    
+    # Optional extension at the end (1-3 digits after space)
+    extension_optional = pynini.closure(
+        pynutil.insert("extension: \"")
+        + pynini.closure(single_digit, 1, 3)
+        + pynutil.insert("\" ")
+        + delete_space,
+        0,
+        1,
+    )
+    
+    # Number with country code (no leading zero handling - country code handles it)
+    number_with_country = (
+        country_code_with_plus
+        + pynutil.insert("number_part: \"")
+        + number_part_digits
+        + pynutil.insert("\" ")
+        + delete_space
+    )
+    
+    # Number without country code (handle leading zero if present)
+    number_without_country = (
+        pynutil.insert("number_part: \"")
+        + leading_zero
+        + number_part_digits
+        + pynutil.insert("\" ")
+        + delete_space
+    )
+    
+    return (pynini.union(number_with_country, number_without_country) + extension_optional).optimize()
+
+
 class TelephoneFst(GraphFst):
     """
     Finite state transducer for tagging telephone numbers, e.g.
@@ -216,12 +310,14 @@ class TelephoneFst(GraphFst):
         landline = generate_landline(landline_context)
         credit_card = generate_credit(credit_context)
         pincode = generate_pincode(pincode_context)
+        general_telephone = generate_general_telephone()
 
         graph = (
-            pynutil.add_weight(mobile_number, 0.7)
-            | pynutil.add_weight(landline, 0.8)
-            | pynutil.add_weight(credit_card, 0.9)
-            | pynutil.add_weight(pincode, 1)
+            pynutil.add_weight(mobile_number, 0.1)
+            | pynutil.add_weight(landline, 0.1)
+            | pynutil.add_weight(credit_card, 1.5)
+            | pynutil.add_weight(pincode, 1.5)
+            | pynutil.add_weight(general_telephone, 0.15)  # Fallback for edge cases
         )
 
         self.final = graph.optimize()

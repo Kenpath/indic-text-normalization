@@ -138,7 +138,7 @@ class ClassifyFst(GraphFst):
             # Lower weight = higher priority in pynini
             classify = (
                 pynutil.add_weight(whitelist_graph, 0.5)  # Highest priority
-                | pynutil.add_weight(telephone_graph, 0.6)  # High priority for telephone
+                | pynutil.add_weight(telephone_graph, 0.3)  # High priority for telephone
                 | pynutil.add_weight(time_graph, 0.7)  # High priority for time (before cardinals!)
                 | pynutil.add_weight(date_graph, 0.8)
                 | pynutil.add_weight(decimal_graph, 0.85)
