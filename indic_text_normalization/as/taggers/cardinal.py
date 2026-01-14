@@ -15,15 +15,19 @@
 import pynini
 from pynini.lib import pynutil
 
-from ..graph_utils import GraphFst, NEMO_DIGIT, NEMO_HI_DIGIT, insert_space
+from ..graph_utils import GraphFst, NEMO_DIGIT, NEMO_AS_DIGIT, NEMO_HI_DIGIT, insert_space
 from ..utils import get_abs_path
 
-# Convert Arabic digits (0-9) to Hindi digits (०-९)
-arabic_to_hindi_digit = pynini.string_map([
-    ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
-    ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
+# Convert Arabic digits (0-9) to Assamese digits (০-৯)
+arabic_to_assamese_digit = pynini.string_map([
+    ("0", "০"), ("1", "১"), ("2", "২"), ("3", "৩"), ("4", "৪"),
+    ("5", "৫"), ("6", "৬"), ("7", "৭"), ("8", "৮"), ("9", "৯")
 ]).optimize()
-arabic_to_hindi_number = pynini.closure(arabic_to_hindi_digit).optimize()
+arabic_to_assamese_number = pynini.closure(arabic_to_assamese_digit).optimize()
+
+# Keep old names for backward compatibility
+arabic_to_hindi_digit = arabic_to_assamese_digit
+arabic_to_hindi_number = arabic_to_assamese_number
 
 
 class CardinalFst(GraphFst):
@@ -49,7 +53,7 @@ class CardinalFst(GraphFst):
         self.teens_and_ties = teens_and_ties
 
         def create_graph_suffix(digit_graph, suffix, zeros_counts):
-            zero = pynutil.add_weight(pynutil.delete("०"), -0.1)
+            zero = pynutil.add_weight(pynutil.delete("০"), -0.1)
             if zeros_counts == 0:
                 return digit_graph + suffix
 
@@ -57,14 +61,14 @@ class CardinalFst(GraphFst):
 
         def create_larger_number_graph(digit_graph, suffix, zeros_counts, sub_graph):
             insert_space = pynutil.insert(" ")
-            zero = pynutil.add_weight(pynutil.delete("०"), -0.1)
+            zero = pynutil.add_weight(pynutil.delete("০"), -0.1)
             if zeros_counts == 0:
                 return digit_graph + suffix + insert_space + sub_graph
 
             return digit_graph + suffix + (zero**zeros_counts) + insert_space + sub_graph
 
-        # Hundred graph
-        suffix_hundreds = pynutil.insert(" सौ")
+        # Hundred graph (শ in Assamese)
+        suffix_hundreds = pynutil.insert(" শ")
         graph_hundreds = create_graph_suffix(digit, suffix_hundreds, 2)
         graph_hundreds |= create_larger_number_graph(digit, suffix_hundreds, 1, digit)
         graph_hundreds |= create_larger_number_graph(digit, suffix_hundreds, 0, teens_ties)
@@ -77,8 +81,8 @@ class CardinalFst(GraphFst):
         graph_hundreds_as_thousand |= create_larger_number_graph(teens_and_ties, suffix_hundreds, 0, teens_ties)
         self.graph_hundreds_as_thousand = graph_hundreds_as_thousand
 
-        # Thousands and Ten thousands graph
-        suffix_thousands = pynutil.insert(" हज़ार")
+        # Thousands and Ten thousands graph (হাজাৰ in Assamese)
+        suffix_thousands = pynutil.insert(" হাজাৰ")
         graph_thousands = create_graph_suffix(digit, suffix_thousands, 3)
         graph_thousands |= create_larger_number_graph(digit, suffix_thousands, 2, digit)
         graph_thousands |= create_larger_number_graph(digit, suffix_thousands, 1, teens_ties)
@@ -93,8 +97,8 @@ class CardinalFst(GraphFst):
         graph_ten_thousands.optimize()
         self.graph_ten_thousands = graph_ten_thousands
 
-        # Lakhs graph and ten lakhs graph
-        suffix_lakhs = pynutil.insert(" लाख")
+        # Lakhs graph and ten lakhs graph (লাখ in Assamese)
+        suffix_lakhs = pynutil.insert(" লাখ")
         graph_lakhs = create_graph_suffix(digit, suffix_lakhs, 5)
         graph_lakhs |= create_larger_number_graph(digit, suffix_lakhs, 4, digit)
         graph_lakhs |= create_larger_number_graph(digit, suffix_lakhs, 3, teens_ties)
@@ -113,8 +117,8 @@ class CardinalFst(GraphFst):
         graph_ten_lakhs.optimize()
         self.graph_ten_lakhs = graph_ten_lakhs
 
-        # Crores graph ten crores graph
-        suffix_crores = pynutil.insert(" करोड़")
+        # Crores graph ten crores graph (কোটি in Assamese)
+        suffix_crores = pynutil.insert(" কোটি")
         graph_crores = create_graph_suffix(digit, suffix_crores, 7)
         graph_crores |= create_larger_number_graph(digit, suffix_crores, 6, digit)
         graph_crores |= create_larger_number_graph(digit, suffix_crores, 5, teens_ties)
@@ -135,8 +139,8 @@ class CardinalFst(GraphFst):
         graph_ten_crores |= create_larger_number_graph(teens_and_ties, suffix_crores, 0, graph_ten_lakhs)
         graph_ten_crores.optimize()
 
-        # Arabs graph and ten arabs graph
-        suffix_arabs = pynutil.insert(" अरब")
+        # Arabs graph and ten arabs graph (অৰব in Assamese)
+        suffix_arabs = pynutil.insert(" অৰব")
         graph_arabs = create_graph_suffix(digit, suffix_arabs, 9)
         graph_arabs |= create_larger_number_graph(digit, suffix_arabs, 8, digit)
         graph_arabs |= create_larger_number_graph(digit, suffix_arabs, 7, teens_ties)
@@ -161,8 +165,8 @@ class CardinalFst(GraphFst):
         graph_ten_arabs |= create_larger_number_graph(teens_and_ties, suffix_arabs, 0, graph_ten_crores)
         graph_ten_arabs.optimize()
 
-        # Kharabs graph and ten kharabs graph
-        suffix_kharabs = pynutil.insert(" खरब")
+        # Kharabs graph and ten kharabs graph (খৰব in Assamese)
+        suffix_kharabs = pynutil.insert(" খৰব")
         graph_kharabs = create_graph_suffix(digit, suffix_kharabs, 11)
         graph_kharabs |= create_larger_number_graph(digit, suffix_kharabs, 10, digit)
         graph_kharabs |= create_larger_number_graph(digit, suffix_kharabs, 9, teens_ties)
@@ -191,8 +195,8 @@ class CardinalFst(GraphFst):
         graph_ten_kharabs |= create_larger_number_graph(teens_and_ties, suffix_kharabs, 0, graph_ten_arabs)
         graph_ten_kharabs.optimize()
 
-        # Nils graph and ten nils graph
-        suffix_nils = pynutil.insert(" नील")
+        # Nils graph and ten nils graph (নীল in Assamese)
+        suffix_nils = pynutil.insert(" নীল")
         graph_nils = create_graph_suffix(digit, suffix_nils, 13)
         graph_nils |= create_larger_number_graph(digit, suffix_nils, 12, digit)
         graph_nils |= create_larger_number_graph(digit, suffix_nils, 11, teens_ties)
@@ -225,8 +229,8 @@ class CardinalFst(GraphFst):
         graph_ten_nils |= create_larger_number_graph(teens_and_ties, suffix_nils, 0, graph_ten_kharabs)
         graph_ten_nils.optimize()
 
-        # Padmas graph and ten padmas graph
-        suffix_padmas = pynutil.insert(" पद्म")
+        # Padmas graph and ten padmas graph (পদ্ম in Assamese)
+        suffix_padmas = pynutil.insert(" পদ্ম")
         graph_padmas = create_graph_suffix(digit, suffix_padmas, 15)
         graph_padmas |= create_larger_number_graph(digit, suffix_padmas, 14, digit)
         graph_padmas |= create_larger_number_graph(digit, suffix_padmas, 13, teens_ties)
@@ -263,8 +267,8 @@ class CardinalFst(GraphFst):
         graph_ten_padmas |= create_larger_number_graph(teens_and_ties, suffix_padmas, 0, graph_ten_nils)
         graph_ten_padmas.optimize()
 
-        # Shankhs graph and ten shankhs graph
-        suffix_shankhs = pynutil.insert(" शंख")
+        # Shankhs graph and ten shankhs graph (শংখ in Assamese)
+        suffix_shankhs = pynutil.insert(" শংখ")
         graph_shankhs = create_graph_suffix(digit, suffix_shankhs, 17)
         graph_shankhs |= create_larger_number_graph(digit, suffix_shankhs, 16, digit)
         graph_shankhs |= create_larger_number_graph(digit, suffix_shankhs, 15, teens_ties)
@@ -350,66 +354,36 @@ class CardinalFst(GraphFst):
 
         # Handle comma-separated numbers (e.g., 1,234,567)
         # These can be any length because commas indicate it's NOT a phone number
-        # Delete commas and then verbalize as a complete number
-        any_digit = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT)
-        delete_commas = (
-            any_digit
-            + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+        # Use Hindi's simpler approach: compose delete_commas directly with graph
+        
+        # Delete commas pattern for Arabic
+        delete_commas_arabic = (
+            NEMO_DIGIT
+            + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + NEMO_DIGIT)
         ).optimize()
         
-        # Input pattern: must contain at least one comma
-        # Pattern: digits + comma + (digits/comma)*
-        # This ensures we only match actual comma-separated numbers
-        digit_or_comma = pynini.union(NEMO_DIGIT, pynini.accep(","))
-        arabic_input_with_comma = (
-            pynini.closure(NEMO_DIGIT, 1)  # At least one digit
-            + pynini.accep(",")  # At least one comma
-            + pynini.closure(digit_or_comma)  # More digits/commas
+        # Delete commas pattern for Assamese
+        delete_commas_assamese = (
+            NEMO_HI_DIGIT
+            + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + NEMO_HI_DIGIT)
         ).optimize()
         
-        hindi_digit_or_comma = pynini.union(NEMO_HI_DIGIT, pynini.accep(","))
-        hindi_input_with_comma = (
-            pynini.closure(NEMO_HI_DIGIT, 1)  # At least one digit
-            + pynini.accep(",")  # At least one comma
-            + pynini.closure(hindi_digit_or_comma)  # More digits/commas
-        ).optimize()
+        # Add comma support: compose delete_commas with final graphs
+        # For Assamese digits with commas
+        assamese_with_commas = pynini.compose(delete_commas_assamese, hindi_final_graph).optimize()
         
-        # Compose: numbers with commas -> delete commas -> cardinal conversion
-        # For Arabic digits with commas (any length allowed)
+        # For Arabic digits with commas: delete commas, convert to Assamese, then process
         arabic_with_commas = pynini.compose(
-            arabic_input_with_comma,
-            delete_commas @ (arabic_to_hindi_number @ hindi_final_graph)
+            delete_commas_arabic,
+            arabic_to_assamese_number @ hindi_final_graph
         ).optimize()
         
-        # For Hindi digits with commas (any length allowed)
-        hindi_with_commas = pynini.compose(
-            hindi_input_with_comma,
-            delete_commas @ hindi_final_graph
-        ).optimize()
+        # Give comma-separated numbers higher priority (lower weight)
+        assamese_final_with_commas = pynutil.add_weight(assamese_with_commas, -0.1) | hindi_cardinal_graph
+        arabic_final_with_commas = pynutil.add_weight(arabic_with_commas, -0.1) | arabic_final_graph
 
-        # Combine all paths with priority to comma-separated versions
-        # Comma-separated numbers have highest priority
-        # Then regular numbers (< 7 digits)
-        final_graph = (
-            pynutil.add_weight(arabic_with_commas, -0.1)
-            | pynutil.add_weight(hindi_with_commas, -0.1)
-            | hindi_cardinal_graph
-            | arabic_final_graph
-        )
-
-        # CRITICAL: Exclude 7+ consecutive digit sequences (Hindi or Arabic)
-        # These should be handled by telephone tagger (digit-by-digit)
-        # Pattern: 7 or more consecutive digits (no commas, no other characters)
-        seven_plus_arabic = pynini.closure(NEMO_DIGIT, 7)
-        seven_plus_hindi = pynini.closure(NEMO_HI_DIGIT, 7)
-        seven_plus_digits = seven_plus_arabic | seven_plus_hindi
-        
-        # Exclude these patterns from final_graph
-        # This ensures telephone tagger (weight 0.9) can match them
-        final_graph = pynini.difference(
-            pynini.closure(pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT, pynini.accep(",")), 1),
-            seven_plus_digits
-        ) @ final_graph
+        # Combine both Assamese and Arabic digit paths (both with comma support)
+        final_graph = assamese_final_with_commas | arabic_final_with_commas
 
         optional_minus_graph = pynini.closure(pynutil.insert("negative: ") + pynini.cross("-", "\"true\" "), 0, 1)
 
@@ -417,3 +391,4 @@ class CardinalFst(GraphFst):
         final_graph = optional_minus_graph + pynutil.insert("integer: \"") + self.final_graph + pynutil.insert("\"")
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph
+

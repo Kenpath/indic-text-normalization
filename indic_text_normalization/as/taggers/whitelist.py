@@ -15,13 +15,13 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.hi.graph_utils import (
+from ..graph_utils import (
     INPUT_LOWER_CASED,
     NEMO_UPPER,
     GraphFst,
     convert_space,
 )
-from indic_text_normalization.hi.utils import (
+from ..utils import (
     augment_labels_with_punct_at_end,
     get_abs_path,
     load_labels,
@@ -47,11 +47,9 @@ class WhiteListFst(GraphFst):
 
         graph = _get_whitelist_graph(input_case, get_abs_path("data/whitelist/abbreviations.tsv"))
         
-        # Load symbols (like English implementation)
-        graph |= pynini.compose(
-            pynini.difference(pynini.union(pynini.accep(" "), pynini.accep("")), pynini.accep("/")).optimize(),
-            _get_whitelist_graph(input_case, get_abs_path("data/whitelist/symbol.tsv")),
-        ).optimize()
+        # Load symbols directly (simpler approach that works)
+        symbol_graph = _get_whitelist_graph(input_case, get_abs_path("data/whitelist/symbol.tsv"))
+        graph |= symbol_graph
 
         if deterministic:
             graph |= graph.optimize()

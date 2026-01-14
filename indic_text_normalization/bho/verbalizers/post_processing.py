@@ -16,7 +16,7 @@ import os
 
 import pynini
 
-from indic_text_normalization.en.graph_utils import (
+from indic_text_normalization.bho.graph_utils import (
     NEMO_NOT_SPACE,
     NEMO_SIGMA,
     delete_space,
@@ -26,7 +26,7 @@ from indic_text_normalization.logging import logger
 
 class PostProcessingFst:
     """
-    Finite state transducer that post-processing an entire sentence after verbalization is complete, e.g.
+    Finite state transducer that post-processes an entire sentence after verbalization is complete, e.g.
     removes extra spaces around punctuation marks " ( one hundred and twenty three ) " -> "(one hundred and twenty three)"
 
     Args:
@@ -39,7 +39,7 @@ class PostProcessingFst:
         far_file = None
         if cache_dir is not None and cache_dir != "None":
             os.makedirs(cache_dir, exist_ok=True)
-            far_file = os.path.join(cache_dir, "hi_tn_post_processing.far")
+            far_file = os.path.join(cache_dir, "bho_tn_post_processing.far")
         if not overwrite_cache and far_file and os.path.exists(far_file):
             self.fst = pynini.Far(far_file, mode="r")["post_process_graph"]
             logger.info(f'Post processing graph was restored from {far_file}.')
@@ -64,7 +64,7 @@ class PostProcessingFst:
                 'ˊ',
                 'ˋ',
                 '˴',
-                'ʹ',
+                'ʹ',
                 '΄',
                 '՚',
                 '՝',
@@ -76,11 +76,11 @@ class PostProcessingFst:
                 'ᛌ',
                 '᾽',
                 '᾿',
-                '`',
-                '´',
+                '`',
+                '´',
                 '῾',
-                '‘',
-                '’',
+                ''',
+                ''',
                 '‛',
                 '′',
                 '‵',

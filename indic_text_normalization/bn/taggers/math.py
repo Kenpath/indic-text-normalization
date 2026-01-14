@@ -74,7 +74,7 @@ class MathFst(GraphFst):
 
         # Operators that can appear between numbers
         # Exclude : and / to avoid conflicts with time and dates
-        operators = pynini.union("+", "-", "*", "=", "&", "^", "%", "$", "#", "@", "!", "<", ">", ",", "(", ")")
+        operators = pynini.union("+", "-", "*", "=", "&", "^", "%", "$", "#", "@", "!", "<", ">", ",", "(", ")", "?")
         
         # Math expression: number operator number
         # Pattern: number [space] operator [space] number
@@ -93,7 +93,7 @@ class MathFst(GraphFst):
         )
 
         # Also support: number operator number operator number (for longer expressions)
-        # This handles cases like "1+2+3"
+        # This handles cases like "1+2+3" or "10 - 7 = 3"
         extended_math = (
             pynutil.insert("left: \"")
             + number_graph
@@ -107,7 +107,7 @@ class MathFst(GraphFst):
             + number_graph
             + pynutil.insert("\"")
             + delimiter
-            + pynutil.insert("operator2: \"")
+            + pynutil.insert("operator_two: \"")
             + (operators @ math_operations)
             + pynutil.insert("\"")
             + delimiter
@@ -116,7 +116,98 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
         )
 
-        final_graph = math_expression | extended_math
+        # Support: operator number (e.g., "+5", "*3")
+        operator_number = (
+            pynutil.insert("left: \"")
+            + pynutil.insert("")
+            + pynutil.insert("\"")
+            + pynutil.insert("operator: \"")
+            + (operators @ math_operations)
+            + pynutil.insert("\"")
+            + delimiter
+            + pynutil.insert("right: \"")
+            + number_graph
+            + pynutil.insert("\"")
+        )
+
+        # Support: number operator (e.g., "5+", "3*")
+        number_operator = (
+            pynutil.insert("left: \"")
+            + number_graph
+            + pynutil.insert("\"")
+            + delimiter
+            + pynutil.insert("operator: \"")
+            + (operators @ math_operations)
+            + pynutil.insert("\"")
+            + pynutil.insert("right: \"")
+            + pynutil.insert("")
+            + pynutil.insert("\"")
+        )
+
+        # Support: standalone operator (e.g., "+", "*", "?")
+        standalone_operator = (
+            pynutil.insert("left: \"")
+            + pynutil.insert("")
+            + pynutil.insert("\"")
+            + pynutil.insert("operator: \"")
+            + (operators @ math_operations)
+            + pynutil.insert("\"")
+            + pynutil.insert("right: \"")
+            + pynutil.insert("")
+            + pynutil.insert("\"")
+        )
+
+        # Operands (for tight patterns)
+        operand_graph = number_graph
+
+        # Special-case: tight dash patterns (no space) - need insert_space for parser compatibility
+        # Pattern 1: "10-2=8" should be treated as "থেকে" (from) - tight minus with equals
+        math_expression_tight_minus_equals = (
+            pynutil.insert("left: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + insert_space
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "থেকে")
+            + pynutil.insert("\"")
+            + insert_space
+            + pynutil.insert("middle: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + insert_space
+            + pynutil.insert("operator_two: \"")
+            + pynini.cross("=", "সমান")
+            + pynutil.insert("\"")
+            + insert_space
+            + pynutil.insert("right: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+        )
+
+        # Pattern 2: "10-2 text" should also be treated as "থেকে" (from) - tight minus without equals
+        # This matches number-number (no spaces around "-") and outputs a math token for just the pair.
+        math_expression_tight_minus_text = (
+            pynutil.insert("left: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + insert_space
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "থেকে")
+            + pynutil.insert("\"")
+            + insert_space
+            + pynutil.insert("right: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+        )
+
+        final_graph = (
+            pynutil.add_weight(math_expression_tight_minus_equals, -0.2)
+            | pynutil.add_weight(math_expression_tight_minus_text, -0.15)
+            | math_expression
+            | extended_math
+            | operator_number
+            | number_operator
+            | standalone_operator
+        )
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph.optimize()
-

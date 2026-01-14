@@ -15,8 +15,8 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.hi.graph_utils import NEMO_NOT_QUOTE, GraphFst
-from indic_text_normalization.hi.utils import get_abs_path
+from ..graph_utils import NEMO_NOT_QUOTE, GraphFst
+from ..utils import get_abs_path
 
 
 class RomanFst(GraphFst):
@@ -37,7 +37,7 @@ class RomanFst(GraphFst):
             ordinal_digit = pynini.string_file(get_abs_path("data/ordinal/digit.tsv")).invert()
             ordinal_teen = pynini.string_file(get_abs_path("data/ordinal/teen.tsv")).invert()
             # Create suffix conversion for ordinals
-            from indic_text_normalization.hi.graph_utils import NEMO_SIGMA
+            from ..graph_utils import NEMO_SIGMA
             suffix = pynini.cdrewrite(
                 ordinal_digit | ordinal_teen,
                 "",

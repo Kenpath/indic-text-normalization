@@ -20,6 +20,11 @@ import pynini
 from pynini.lib import pynutil
 
 from ..graph_utils import (
+    NEMO_DIGIT,
+    NEMO_AS_DIGIT,
+    NEMO_HI_DIGIT,
+    NEMO_NOT_SPACE,
+    NEMO_SIGMA,
     NEMO_SPACE,
     NEMO_WHITE_SPACE,
     GraphFst,
@@ -44,6 +49,8 @@ from ..taggers.telephone import TelephoneFst
 from ..taggers.time import TimeFst
 from ..taggers.whitelist import WhiteListFst
 from ..taggers.word import WordFst
+from ..taggers.power import PowerFst
+from ..taggers.scientific import ScientificFst
 from ..verbalizers.date import DateFst as vDateFst
 from ..verbalizers.ordinal import OrdinalFst as vOrdinalFst
 from ..verbalizers.time import TimeFst as vTimeFst
@@ -178,8 +185,16 @@ class ClassifyFst(GraphFst):
             ).fst
             logging.debug(f"range: {time.time() - start_time:.2f}s -- {range_graph.num_states()} nodes")
 
-            # A quick fix to address money ranges: $150-$200
-            dash = (pynutil.insert('name: "') + pynini.cross("-", "से") + pynutil.insert('"')).optimize()
+            start_time = time.time()
+            power = PowerFst(cardinal=cardinal, deterministic=deterministic)
+            power_graph = power.fst
+
+            scientific = ScientificFst(cardinal=cardinal, deterministic=deterministic)
+            scientific_graph = scientific.fst
+            logging.debug(f"power: {time.time() - start_time:.2f}s -- {power_graph.num_states()} nodes")
+
+            # A quick fix to address money ranges: $150-$200 (using Assamese "ৰ পৰা")
+            dash = (pynutil.insert('name: "') + pynini.cross("-", "ৰ পৰা") + pynutil.insert('"')).optimize()
             graph_range_money = pynini.closure(
                 money_graph
                 + pynutil.insert(" }")
@@ -200,10 +215,12 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(cardinal_graph, 1.1)
                 | pynutil.add_weight(ordinal_graph, 1.1)
                 | pynutil.add_weight(money_graph, 1.1)
-                | pynutil.add_weight(telephone_graph, 0.9)  # Higher priority than cardinal (lower weight = higher priority)
+                | pynutil.add_weight(telephone_graph, 0.5)  # Higher priority than cardinal (lower weight = higher priority)
                 | pynutil.add_weight(electronic_graph, 1.11)
                 | pynutil.add_weight(fraction_graph, 1.1)
                 | pynutil.add_weight(math_graph, 1.1)
+                | pynutil.add_weight(scientific_graph, 1.08)  # Higher priority for scientific notation
+                | pynutil.add_weight(power_graph, 1.09)  # Higher priority for superscripts
                 | pynutil.add_weight(range_graph, 1.1)
                 | pynutil.add_weight(serial_graph, 1.12)  # should be higher than the rest of the classes
                 | pynutil.add_weight(graph_range_money, 1.1)
@@ -249,8 +266,60 @@ class ClassifyFst(GraphFst):
             graph = delete_space + graph + delete_space
             graph = pynini.union(graph, punct)
 
+            # Define Indic script blocks
+            as_block = pynini.union(*[chr(i) for i in range(0x0980, 0x0A00)]).optimize()  # Bengali/Assamese block
+            hi_block = pynini.union(*[chr(i) for i in range(0x0900, 0x0980)]).optimize()  # Devanagari (Hindi) block
+            indic_block = pynini.union(as_block, hi_block).optimize()  # Combined Indic scripts
+            
+            # Characters that are part of numbers (digits and decimal point)
+            all_digits = pynini.union(NEMO_DIGIT, NEMO_AS_DIGIT, NEMO_HI_DIGIT).optimize()
+            
+            # Common ASCII special characters that should be separated from numbers
+            # Only include safe characters that don't cause pynini compilation issues
+            # Avoiding brackets [], {}, (), and other regex-special characters
+            special_chars = pynini.union(
+                pynini.accep("&"), pynini.accep("?"), pynini.accep("!"), 
+                pynini.accep("#"), pynini.accep("$"), pynini.accep("%"), 
+                pynini.accep("^"), pynini.accep("*"), pynini.accep("/"), 
+                pynini.accep("@"), pynini.accep("~"), pynini.accep("`"), 
+                pynini.accep("+"), pynini.accep(";"), pynini.accep(":"), 
+                pynini.accep("_")  # Removed comma - it's used in numbers
+            ).optimize()
+            
+            # Insert space between digits and special characters
+            # Example: "3.14&?" -> "3.14 &?"
+            digit_special_insert_space = pynini.cdrewrite(pynutil.insert(" "), all_digits, special_chars, NEMO_SIGMA)
+            
+            # Rewrite joiner hyphens between digits and Indic letters to spaces.
+            # Example: "3.14-কথা" -> "3.14 কথা"
+            joiner_hyphen_to_space = pynini.cdrewrite(pynini.cross("-", " "), all_digits, indic_block, NEMO_SIGMA)
+            
+            # Convert underscore between digits and Indic letters to space.
+            # Example: "3.14_वहाँ" -> "3.14 वहाँ"
+            underscore_to_space = pynini.cdrewrite(pynini.cross("_", " "), all_digits, indic_block, NEMO_SIGMA)
+            
+            # Insert space when digits are directly followed by Indic letters (no separator).
+            # Example: "3.14वहाँ" -> "3.14 वहाँ"
+            digit_indic_insert_space = pynini.cdrewrite(pynutil.insert(" "), all_digits, indic_block, NEMO_SIGMA)
+
             start_time = time.time()
-            self.fst = graph.optimize()
+            # Also ensure glued equals patterns like "π=3.1415" tokenize cleanly.
+            # Only apply when the left side is NOT a digit (so we don't change "10-2=8" tight math behavior).
+            non_digit_left = pynini.difference(
+                NEMO_NOT_SPACE, pynini.union(NEMO_DIGIT, NEMO_AS_DIGIT, NEMO_HI_DIGIT)
+            ).optimize()
+            digit_right = pynini.union(NEMO_DIGIT, NEMO_AS_DIGIT, NEMO_HI_DIGIT).optimize()
+            equals_to_spaced = pynini.cdrewrite(pynini.cross("=", " = "), non_digit_left, digit_right, NEMO_SIGMA)
+
+            # Also separate em-dash glued to a following number, e.g. "—3.14" so decimals can match.
+            emdash_to_spaced = pynini.cdrewrite(pynini.cross("—", "— "), "", digit_right, NEMO_SIGMA)
+
+            # And convert em-dash used as a joiner between digits and Indic letters into a space:
+            #   "3.14—আৰু" -> "3.14 আৰু"
+            emdash_joiner_to_space = pynini.cdrewrite(pynini.cross("—", " "), digit_right, indic_block, NEMO_SIGMA)
+
+            # Apply preprocessing in order: first handle special chars, then specific separators, then direct attachments
+            self.fst = (digit_special_insert_space @ digit_indic_insert_space @ underscore_to_space @ emdash_joiner_to_space @ emdash_to_spaced @ equals_to_spaced @ joiner_hyphen_to_space @ graph).optimize()
             logging.debug(f"final graph optimization: {time.time() - start_time:.2f}s -- {self.fst.num_states()} nodes")
 
             if far_file:

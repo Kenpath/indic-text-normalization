@@ -16,7 +16,7 @@ import pynini
 from pynini.examples import plurals
 from pynini.lib import pynutil
 
-from indic_text_normalization.hi.graph_utils import (
+from ..graph_utils import (
     MIN_NEG_WEIGHT,
     NEMO_ALPHA,
     NEMO_CHAR,
@@ -30,7 +30,7 @@ from indic_text_normalization.hi.graph_utils import (
     delete_space,
     insert_space,
 )
-from indic_text_normalization.hi.utils import get_abs_path
+from ..utils import get_abs_path
 
 
 class ElectronicFst(GraphFst):
@@ -47,10 +47,10 @@ class ElectronicFst(GraphFst):
         super().__init__(name="electronic", kind="verbalize", deterministic=deterministic)
         graph_digit_no_zero = pynini.invert(pynini.string_file(get_abs_path("data/numbers/digit.tsv"))).optimize()
         graph_zero = pynini.string_file(get_abs_path("data/numbers/zero.tsv")).optimize()
-        long_numbers = pynutil.add_weight(graph_digit_no_zero + pynini.cross("000", " हज़ार"), MIN_NEG_WEIGHT)
+        long_numbers = pynutil.add_weight(graph_digit_no_zero + pynini.cross("000", " হাজাৰ"), MIN_NEG_WEIGHT)
 
         if not deterministic:
-            graph_zero |= pynini.cross("0", "शून्य") | pynini.cross("0", "ओ")
+            graph_zero |= pynini.cross("0", "শূন্য") | pynini.cross("0", "অ")
 
         graph_digit = graph_digit_no_zero | graph_zero
         graph_symbols = pynini.string_file(get_abs_path("data/electronic/symbol.tsv")).optimize()
@@ -96,7 +96,7 @@ class ElectronicFst(GraphFst):
             domain_all
             + insert_space
             + plurals._priority_union(
-                domain_common, pynutil.add_weight(pynini.cross(".", "डॉट"), weight=0.0001), NEMO_SIGMA
+                domain_common, pynutil.add_weight(pynini.cross(".", "ডট"), weight=0.0001), NEMO_SIGMA
             )
             + pynini.closure(insert_space + default_chars_symbols, 0, 1)
         )

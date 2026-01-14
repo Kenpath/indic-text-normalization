@@ -27,15 +27,41 @@ from pynini.lib import byte, pynutil, utf8
 NEMO_CHAR = utf8.VALID_UTF8_CHAR
 NEMO_DIGIT = byte.DIGIT
 
-NEMO_HI_DIGIT = pynini.union("०", "१", "२", "३", "४", "५", "६", "७", "८", "९").optimize()
-NEMO_HI_NON_ZERO = pynini.union("१", "२", "३", "४", "५", "६", "७", "८", "९").optimize()
-NEMO_HI_ZERO = "०"
+# Assamese/Bengali script digits (০-৯)
+NEMO_AS_DIGIT = pynini.union("০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯").optimize()
+NEMO_AS_NON_ZERO = pynini.union("১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯").optimize()
+NEMO_AS_ZERO = "০"
 
-HI_DEDH = "डेढ़"  # 1.5
-HI_DHAI = "ढाई"  # 2.5
-HI_SAVVA = "सवा"  # quarter more (1.25)
-HI_SADHE = "साढ़े"  # half more (X.5)
-HI_PAUNE = "पौने"  # quarter less (0.75)
+# Keep HI_DIGIT for backwards compatibility with existing code
+NEMO_HI_DIGIT = NEMO_AS_DIGIT
+NEMO_HI_NON_ZERO = NEMO_AS_NON_ZERO
+NEMO_HI_ZERO = NEMO_AS_ZERO
+
+# Superscript characters for powers/exponents
+NEMO_SUPERSCRIPT_DIGIT = pynini.union("⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹").optimize()
+NEMO_SUPERSCRIPT_MINUS = "⁻"
+NEMO_SUPERSCRIPT_PLUS = "⁺"
+
+# Mapping from superscript to regular digits
+superscript_to_digit = pynini.string_map([
+    ("⁰", "0"), ("¹", "1"), ("²", "2"), ("³", "3"), ("⁴", "4"),
+    ("⁵", "5"), ("⁶", "6"), ("⁷", "7"), ("⁸", "8"), ("⁹", "9")
+]).optimize()
+
+superscript_to_sign = pynini.string_map([
+    ("⁻", "-"), ("⁺", "+")
+]).optimize()
+
+# Assamese-specific constants (kept for reference, though not used directly like HI_ ones)
+# AS_DEDH = "ডেৰ"  # 1.5
+# AS_DHAI = "আঢ়াই"  # 2.5
+
+# Keep HI_ prefixes for compatibility
+HI_DEDH = "ডেৰ"  # 1.5 (Assamese)
+HI_DHAI = "আঢ়াই"  # 2.5 (Assamese)
+HI_SAVVA = "সোৱা"  # quarter more (1.25) (Assamese)
+HI_SADHE = "সাৰে"  # half more (X.5) (Assamese)
+HI_PAUNE = "পৌণে"  # quarter less (0.75) (Assamese)
 
 NEMO_LOWER = pynini.union(*string.ascii_lowercase).optimize()
 NEMO_UPPER = pynini.union(*string.ascii_uppercase).optimize()
@@ -65,7 +91,7 @@ MIN_NEG_WEIGHT = -0.0001
 MIN_POS_WEIGHT = 0.0001
 INPUT_CASED = "cased"
 INPUT_LOWER_CASED = "lower_cased"
-MINUS = pynini.union(" ऋणात्मक ", " ऋणात्मक ").optimize()
+MINUS = pynini.union(" ঋণাত্মক ", " ঋণাত্মক ").optimize()
 
 
 def capitalized_input_graph(

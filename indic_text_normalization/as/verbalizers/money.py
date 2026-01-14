@@ -16,17 +16,13 @@ import pynini
 from pynini.lib import pynutil
 
 major_minor_currencies = {
-    "रुपए": "पैसे",
-    "पाउंड": "पेंस",
-    "वॉन": "जिओन",
-    "डॉलर": "सेंट",
-    "लीरा": "कुरस",
-    "टका": "पैसे",
-    "येन": "सेन",
-    "नाइरा": "कोबो",
-    "यूरो": "सेंट",
+    "টকা": "পইচা",
+    "পাউণ্ড": "পেন্স",
+    "ডলাৰ": "চেন্ট",
+    "ইউৰো": "চেন্ট",
+    "য়েন": "চেন",
 }
-from indic_text_normalization.hi.graph_utils import NEMO_NOT_QUOTE, NEMO_SPACE, GraphFst
+from ..graph_utils import NEMO_NOT_QUOTE, NEMO_SPACE, GraphFst
 
 
 class MoneyFst(GraphFst):

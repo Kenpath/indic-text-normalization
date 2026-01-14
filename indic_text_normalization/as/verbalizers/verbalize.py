@@ -12,21 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from indic_text_normalization.hi.graph_utils import GraphFst
-from indic_text_normalization.hi.verbalizers.abbreviation import AbbreviationFst
-from indic_text_normalization.hi.verbalizers.cardinal import CardinalFst
-from indic_text_normalization.hi.verbalizers.date import DateFst
-from indic_text_normalization.hi.verbalizers.decimal import DecimalFst
-from indic_text_normalization.hi.verbalizers.electronic import ElectronicFst
-from indic_text_normalization.hi.verbalizers.fraction import FractionFst
-from indic_text_normalization.hi.verbalizers.math import MathFst
-from indic_text_normalization.hi.verbalizers.measure import MeasureFst
-from indic_text_normalization.hi.verbalizers.money import MoneyFst
-from indic_text_normalization.hi.verbalizers.ordinal import OrdinalFst
-from indic_text_normalization.hi.verbalizers.roman import RomanFst
-from indic_text_normalization.hi.verbalizers.telephone import TelephoneFst
-from indic_text_normalization.hi.verbalizers.time import TimeFst
-from indic_text_normalization.hi.verbalizers.whitelist import WhiteListFst
+from ..graph_utils import GraphFst
+from .abbreviation import AbbreviationFst
+from .cardinal import CardinalFst
+from .date import DateFst
+from .decimal import DecimalFst
+from .electronic import ElectronicFst
+from .fraction import FractionFst
+from .math import MathFst
+from .measure import MeasureFst
+from .money import MoneyFst
+from .ordinal import OrdinalFst
+from .roman import RomanFst
+from .telephone import TelephoneFst
+from .time import TimeFst
+from .whitelist import WhiteListFst
+from .power import PowerFst
+from .scientific import ScientificFst
 
 
 class VerbalizeFst(GraphFst):
@@ -76,6 +78,12 @@ class VerbalizeFst(GraphFst):
 
         electronic_graph = ElectronicFst(deterministic=deterministic).fst
 
+        power = PowerFst(deterministic=deterministic)
+        power_graph = power.fst
+
+        scientific = ScientificFst(deterministic=deterministic)
+        scientific_graph = scientific.fst
+
         graph = (
             cardinal_graph
             | decimal_graph
@@ -86,9 +94,11 @@ class VerbalizeFst(GraphFst):
             | money_graph
             | ordinal_graph
             | math_graph
+            | scientific_graph
             | whitelist_graph
             | telephone_graph
             | electronic_graph
+            | power_graph
         )
 
         roman_graph = RomanFst(deterministic=deterministic).fst

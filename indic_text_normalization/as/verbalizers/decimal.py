@@ -15,15 +15,15 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.hi.graph_utils import MINUS, NEMO_NOT_QUOTE, GraphFst, insert_space
-from indic_text_normalization.hi.taggers.decimal import quantities
+from ..graph_utils import MINUS, NEMO_NOT_QUOTE, GraphFst, insert_space
+from ..taggers.decimal import quantities
 
 
 class DecimalFst(GraphFst):
     """
     Finite state transducer for classifying decimal, e.g.
-        decimal { negative: "true" integer_part: "बारह"  fractional_part: "पाँच शून्य शून्य छह" quantity: "अरब" } -> ऋणात्मक बारह दशमलव पाँच शून्य शून्य छह
-        decimal { integer_part: "बारह" quantity: "billion" } -> बारह अरब
+        decimal { negative: "true" integer_part: "বাৰ"  fractional_part: "পাঁচ শূন্য শূন্য ছয়" quantity: "অৰব" } -> ঋণাত্মক বাৰ দশমিক পাঁচ শূন্য শূন্য ছয়
+        decimal { integer_part: "বাৰ" quantity: "billion" } -> বাৰ অৰব
 
     """
 
@@ -37,7 +37,7 @@ class DecimalFst(GraphFst):
             pynutil.delete("fractional_part: \"") + pynini.closure(NEMO_NOT_QUOTE, 1) + pynutil.delete("\"")
         )
 
-        self.fractional = pynutil.insert(" दशमलव ") + self.fractional_default
+        self.fractional = pynutil.insert(" দশমিক ") + self.fractional_default
 
         self.quantity = (
             delete_space + insert_space + pynutil.delete("quantity: \"") + quantities + pynutil.delete("\"")

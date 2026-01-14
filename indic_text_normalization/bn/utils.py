@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import csv
 import os
+import pynini
 
 
-def get_abs_path(rel_path: str):
+def get_abs_path(rel_path):
     """
     Get absolute path
 
@@ -24,5 +26,49 @@ def get_abs_path(rel_path: str):
 
     Returns absolute path
     """
-    return os.path.dirname(os.path.abspath(__file__)) + os.sep + rel_path
+    return os.path.dirname(os.path.abspath(__file__)) + '/' + rel_path
 
+
+def load_labels(abs_path):
+    """
+    loads relative path file as dictionary
+
+    Args:
+        abs_path: absolute path
+
+    Returns dictionary of mappings
+    """
+    label_tsv = open(abs_path, encoding="utf-8")
+    labels = list(csv.reader(label_tsv, delimiter="\t"))
+    label_tsv.close()
+    return labels
+
+
+def augment_labels_with_punct_at_end(labels):
+    """
+    augments labels: if key ends on a punctuation that value does not have, add a new label
+    where the value maintains the punctuation
+
+    Args:
+        labels : input labels
+    Returns:
+        additional labels
+    """
+    res = []
+    for label in labels:
+        if len(label) > 1:
+            if label[0][-1] == "." and label[1][-1] != ".":
+                res.append([label[0], label[1] + "."] + label[2:])
+    return res
+
+
+def apply_fst(text, fst):
+    """Given a string input, returns the output string
+    produced by traversing the path with lowest weight.
+    If no valid path accepts input string, returns an
+    error.
+    """
+    try:
+        print(pynini.shortestpath(text @ fst).string())
+    except pynini.FstOpError:
+        print(f"Error: No valid output with given input: '{text}'")

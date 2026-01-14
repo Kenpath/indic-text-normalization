@@ -17,6 +17,7 @@ from pynini.lib import pynutil
 
 from ..graph_utils import (
     NEMO_DIGIT,
+    NEMO_AS_DIGIT,
     NEMO_HI_DIGIT,
     GraphFst,
     insert_space,
@@ -25,12 +26,16 @@ from ..utils import get_abs_path
 
 quantities = pynini.string_file(get_abs_path("data/numbers/thousands.tsv"))
 
-# Convert Arabic digits (0-9) to Hindi digits (०-९)
-arabic_to_hindi_digit = pynini.string_map([
-    ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
-    ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
+# Convert Arabic digits (0-9) to Assamese digits (০-৯)
+arabic_to_assamese_digit = pynini.string_map([
+    ("0", "০"), ("1", "১"), ("2", "২"), ("3", "৩"), ("4", "৪"),
+    ("5", "৫"), ("6", "৬"), ("7", "৭"), ("8", "৮"), ("9", "৯")
 ]).optimize()
-arabic_to_hindi_number = pynini.closure(arabic_to_hindi_digit).optimize()
+arabic_to_assamese_number = pynini.closure(arabic_to_assamese_digit).optimize()
+
+# Keep old names for backward compatibility
+arabic_to_hindi_digit = arabic_to_assamese_digit
+arabic_to_hindi_number = arabic_to_assamese_number
 
 
 def get_quantity(decimal: 'pynini.FstLike', cardinal_up_to_hundred: 'pynini.FstLike') -> 'pynini.FstLike':
@@ -73,11 +78,11 @@ class DecimalFst(GraphFst):
         # Support both Hindi and Arabic digits for fractional part
         # Hindi digits path: Hindi digits -> cardinal digit/zero mapping
         hindi_digit_graph = cardinal.digit | cardinal.zero
-        hindi_fractional_input = pynini.closure(NEMO_HI_DIGIT, 1)
+        hindi_fractional_input = NEMO_HI_DIGIT  # Match exactly 1 digit
         hindi_fractional_graph = pynini.compose(hindi_fractional_input, hindi_digit_graph).optimize()
         
         # Arabic digits path: Arabic digits -> convert to Hindi -> cardinal digit/zero mapping
-        arabic_fractional_input = pynini.closure(NEMO_DIGIT, 1)
+        arabic_fractional_input = NEMO_DIGIT  # Match exactly 1 digit
         arabic_fractional_graph = pynini.compose(
             arabic_fractional_input,
             arabic_to_hindi_number @ hindi_digit_graph

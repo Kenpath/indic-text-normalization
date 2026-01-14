@@ -16,14 +16,14 @@ import pynini
 from pynini.examples import plurals
 from pynini.lib import pynutil
 
-from indic_text_normalization.hi.graph_utils import (
+from ..graph_utils import (
     MINUS,
     NEMO_NOT_QUOTE,
     NEMO_SIGMA,
     GraphFst,
     insert_space,
 )
-from indic_text_normalization.hi.utils import get_abs_path
+from ..utils import get_abs_path
 
 
 class FractionFst(GraphFst):
@@ -50,31 +50,31 @@ class FractionFst(GraphFst):
         numerator = pynutil.delete("numerator: \"") + pynini.closure(NEMO_NOT_QUOTE) + pynutil.delete("\" ")
         denominator = pynutil.delete("denominator: \"") + pynini.closure(NEMO_NOT_QUOTE) + pynutil.delete("\"")
         
-        insert_aur = pynutil.insert(" और ")
-        insert_bata = pynutil.insert(" बटा ")
+        insert_aru = pynutil.insert(" আৰু ")
+        insert_bhag = pynutil.insert(" ভাগ ")
         
         # Special cases (like English)
-        # 1/2 -> "आधा" (half): numerator "एक" + denominator "दो" -> "आधा"
+        # 1/2 -> "আধা" (half): numerator "এক" + denominator "দুই" -> "আধা"
         numerator_one_half = (
-            pynutil.delete("numerator: \"एक\"") + pynutil.delete("\" ")
-            + pynini.cross("denominator: \"दो\"", "आधा")
+            pynutil.delete("numerator: \"এক\"") + pynutil.delete("\" ")
+            + pynini.cross("denominator: \"দুই\"", "আধা")
         )
         
-        # 1/4 -> "चौथाई" (quarter): numerator "एक" + denominator "चार" -> "चौथाई"
+        # 1/4 -> "চতুৰ্থাংশ" (quarter): numerator "এক" + denominator "চাৰি" -> "চতুৰ্থাংশ"
         numerator_one_quarter = (
-            pynutil.delete("numerator: \"एक\"") + pynutil.delete("\" ")
-            + pynini.cross("denominator: \"चार\"", "चौथाई")
+            pynutil.delete("numerator: \"এক\"") + pynutil.delete("\" ")
+            + pynini.cross("denominator: \"চাৰি\"", "চতুৰ্থাংশ")
         )
         
-        # 3/4 -> "तीन चौथाई" (three quarters): numerator "तीन" + denominator "चार" -> "तीन चौथाई"
+        # 3/4 -> "তিনি চতুৰ্থাংশ" (three quarters): numerator "তিনি" + denominator "চাৰি" -> "তিনি চতুৰ্থাংশ"
         three_quarters = (
-            pynutil.delete("numerator: \"तीन\"") + pynutil.delete("\" ")
-            + pynutil.insert("तीन ")
-            + pynini.cross("denominator: \"चार\"", "चौथाई")
+            pynutil.delete("numerator: \"তিনি\"") + pynutil.delete("\" ")
+            + pynutil.insert("তিনি ")
+            + pynini.cross("denominator: \"চাৰি\"", "চতুৰ্থাংশ")
         )
         
-        # Default: numerator बटा denominator (for all other fractions)
-        fraction_default = numerator + insert_bata + denominator
+        # Default: numerator ভাগ denominator (for all other fractions)
+        fraction_default = numerator + insert_bhag + denominator
         
         # Use priority union like English to handle special cases first, then default
         fraction_graph = plurals._priority_union(
@@ -92,10 +92,10 @@ class FractionFst(GraphFst):
             pynutil.delete("morphosyntactic_features: \"") + pynini.closure(NEMO_NOT_QUOTE, 1) + pynutil.delete("\"")
         )
         
-        # Add integer part with "और" (and) for mixed numbers
+        # Add integer part with "আৰু" (and) for mixed numbers
         self.graph = (
             optional_sign
-            + pynini.closure(integer + insert_space + insert_aur, 0, 1)
+            + pynini.closure(integer + insert_space + insert_aru, 0, 1)
             + fraction_graph
         ) | graph_quarter
 

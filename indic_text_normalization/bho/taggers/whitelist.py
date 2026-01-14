@@ -48,6 +48,12 @@ class WhiteListFst(GraphFst):
             return graph
 
         graph = _get_whitelist_graph(input_case, get_abs_path("data/whitelist/abbreviations.tsv"))
+        
+        # Load symbols (like Hindi implementation)
+        graph |= pynini.compose(
+            pynini.difference(pynini.union(pynini.accep(" "), pynini.accep("")), pynini.accep("/")).optimize(),
+            _get_whitelist_graph(input_case, get_abs_path("data/whitelist/symbol.tsv")),
+        ).optimize()
 
         if deterministic:
             graph |= graph.optimize()

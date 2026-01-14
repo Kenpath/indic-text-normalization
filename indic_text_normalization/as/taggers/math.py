@@ -15,23 +15,28 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.hi.graph_utils import (
+from ..graph_utils import (
     NEMO_DIGIT,
+    NEMO_AS_DIGIT,
     NEMO_HI_DIGIT,
     NEMO_SPACE,
     GraphFst,
     insert_space,
 )
-from indic_text_normalization.hi.utils import get_abs_path
+from ..utils import get_abs_path
 
-# Convert Arabic digits (0-9) to Hindi digits (०-९)
-arabic_to_hindi_digit = pynini.string_map([
-    ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
-    ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
+# Convert Arabic digits (0-9) to Assamese digits (০-৯)
+arabic_to_assamese_digit = pynini.string_map([
+    ("0", "০"), ("1", "১"), ("2", "২"), ("3", "৩"), ("4", "৪"),
+    ("5", "৫"), ("6", "৬"), ("7", "৭"), ("8", "৮"), ("9", "৯")
 ]).optimize()
-arabic_to_hindi_number = pynini.closure(arabic_to_hindi_digit).optimize()
+arabic_to_assamese_number = pynini.closure(arabic_to_assamese_digit).optimize()
 
-# Load math operations
+# Keep old names for backward compatibility
+arabic_to_hindi_digit = arabic_to_assamese_digit
+arabic_to_hindi_number = arabic_to_assamese_number
+
+# Load math operations (Assamese version)
 math_operations = pynini.string_file(get_abs_path("data/math_operations.tsv"))
 
 
@@ -107,7 +112,7 @@ class MathFst(GraphFst):
             + number_graph
             + pynutil.insert("\"")
             + delimiter
-            + pynutil.insert("operator2: \"")
+            + pynutil.insert("operator_two: \"")
             + (operators @ math_operations)
             + pynutil.insert("\"")
             + delimiter
@@ -157,7 +162,60 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
         )
 
-        final_graph = math_expression | extended_math | operator_number | number_operator | standalone_operator
+        # Operands (for tight patterns)
+        operand_graph = number_graph
+
+        # Special-case: tight dash patterns (no space)
+        tight = pynutil.insert("")  # no space
+        # Pattern 1: "10-2=8" should be treated as "ৰ পৰা" (from) - tight minus with equals
+        math_expression_tight_minus_equals = (
+            pynutil.insert("left: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "ৰ পৰা")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("middle: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator_two: \"")
+            + pynini.cross("=", "সমান")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("right: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+        )
+
+        # Pattern 2: "10-2 text" should also be treated as "ৰ পৰা" (from) - tight minus without equals
+        # This matches number-number (no spaces around "-") and outputs a math token for just the pair.
+        math_expression_tight_minus_text = (
+            pynutil.insert("left: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "ৰ পৰা")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("right: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+        )
+
+        final_graph = (
+            pynutil.add_weight(math_expression_tight_minus_equals, -0.2)
+            | pynutil.add_weight(math_expression_tight_minus_text, -0.15)
+            | math_expression
+            | extended_math
+            | operator_number
+            | number_operator
+            | standalone_operator
+        )
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph.optimize()
+
 

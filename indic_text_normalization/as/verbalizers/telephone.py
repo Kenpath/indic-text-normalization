@@ -16,7 +16,7 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.hi.graph_utils import (
+from ..graph_utils import (
     MIN_NEG_WEIGHT,
     NEMO_NOT_QUOTE,
     NEMO_SPACE,

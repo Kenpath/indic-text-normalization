@@ -30,11 +30,22 @@ arabic_to_bhojpuri_digit = pynini.string_map([
 ]).optimize()
 arabic_to_bhojpuri_number = pynini.closure(arabic_to_bhojpuri_digit).optimize()
 
+# Create a graph that deletes commas from digit sequences
+# This handles Indian number format where commas are separators (e.g., 1,000,001 or 5,67,300)
+any_digit = pynini.union(NEMO_DIGIT, NEMO_BHO_DIGIT)
+# Pattern: digit (comma? digit)* - accepts digits with optional commas, deletes commas
+# This creates a transducer: input (with commas) -> output (without commas)
+delete_commas = (
+    any_digit
+    + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+).optimize()
+
 
 class CardinalFst(GraphFst):
     """
     Finite state transducer for classifying Bhojpuri cardinals, e.g.
         -२३ -> cardinal { negative: "true"  integer: "तेईस" }
+        1,000,001 -> cardinal { integer: "दस लाख एक" }
 
     Args:
         deterministic: if True will provide a single transduction option,
@@ -234,20 +245,38 @@ class CardinalFst(GraphFst):
             | graph_ten_crores
             | graph_leading_zero
         ).optimize()
+
+        # Add comma support: compose delete_commas with bhojpuri_final_graph
+        # This allows inputs like "1,000,001" or "१,००,००१" to be processed
+        bhojpuri_with_commas = pynini.compose(delete_commas, bhojpuri_final_graph).optimize()
+        
+        # Give comma-separated numbers higher priority (lower weight)
+        bhojpuri_final_with_commas = pynutil.add_weight(bhojpuri_with_commas, -0.1) | bhojpuri_final_graph
         
         # Arabic digits: convert to Bhojpuri, then apply the same graph
         arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
+        
+        # For Arabic digits with commas: delete commas first, then convert and process
+        arabic_with_commas = pynini.compose(
+            delete_commas,
+            arabic_to_bhojpuri_number @ bhojpuri_final_graph
+        ).optimize()
+        
+        # Regular Arabic digits without commas
         arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_bhojpuri_number @ bhojpuri_final_graph).optimize()
         
-        # Combine both Bhojpuri and Arabic digit paths
-        final_graph = bhojpuri_final_graph | arabic_final_graph
+        # Combine: prioritize comma-separated, fallback to regular
+        arabic_final_with_commas = pynutil.add_weight(arabic_with_commas, -0.1) | arabic_final_graph
+        
+        # Combine both Bhojpuri and Arabic digit paths (both with comma support)
+        final_graph = bhojpuri_final_with_commas | arabic_final_with_commas
 
         # Handle negative numbers
         optional_minus_graph = pynini.closure(
             pynutil.insert("negative: ") + pynini.cross("-", "\"true\" "), 0, 1
         )
 
-        self.final_graph = final_graph
+        self.final_graph = final_graph.optimize()
         final_graph = (
             optional_minus_graph
             + pynutil.insert("integer: \"")
@@ -256,4 +285,3 @@ class CardinalFst(GraphFst):
         )
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph.optimize()
-

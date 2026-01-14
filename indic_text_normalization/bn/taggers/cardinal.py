@@ -15,7 +15,7 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.bn.graph_utils import GraphFst, NEMO_DIGIT, NEMO_SPACE, insert_space
+from indic_text_normalization.bn.graph_utils import GraphFst, NEMO_DIGIT, NEMO_BN_DIGIT, NEMO_SPACE, insert_space
 from indic_text_normalization.bn.utils import get_abs_path
 
 # Convert Arabic digits (0-9) to Bengali digits (০-৯)
@@ -33,6 +33,7 @@ class CardinalFst(GraphFst):
     """
     Finite state transducer for classifying cardinals, e.g.
         -২৩ -> cardinal { negative: "true"  integer: "তেইশ" }
+        1,000,001 -> cardinal { integer: "দশ লক্ষ এক" }
 
     Args:
         deterministic: if True will provide a single transduction option,
@@ -159,65 +160,55 @@ class CardinalFst(GraphFst):
             | graph_leading_zero
         ).optimize()
 
-        # Arabic digits: convert to Bengali, then apply the same graph
-        arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
+        # Bengali digits: Use the full cardinal graph
+        # Support up to 9 digits (up to 99 crore) - telephone has specific patterns that won't conflict
+        bengali_digit_input = pynini.closure(NEMO_BN_DIGIT, 1, 9)  # 1-9 digits
+        bengali_cardinal_graph = pynini.compose(bengali_digit_input, bengali_final_graph).optimize()
+
+        # Arabic digits: Convert to Bengali and verbalize using the full graph
+        # Support up to 9 digits (up to 99 crore)
+        arabic_digit_input = pynini.closure(NEMO_DIGIT, 1, 9)  # 1-9 digits
         arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_bengali_number @ bengali_final_graph).optimize()
 
-        # Combine both Bengali and Arabic digit paths
-        final_graph = bengali_final_graph | arabic_final_graph
+        # Handle comma-separated numbers (e.g., 1,234,567)
+        # These can be any length because commas indicate it's NOT a phone number
+        # IMPORTANT: Must match at least ONE comma to avoid matching single digits
+        
+        # Delete commas pattern for Arabic - REQUIRES at least one comma
+        delete_commas_arabic = (
+            pynini.closure(NEMO_DIGIT, 1)  # One or more digits
+            + pynutil.delete(",")  # MUST have at least one comma
+            + pynini.closure(pynini.closure(NEMO_DIGIT, 1) + pynini.closure(pynutil.delete(","), 0, 1))  # More digit groups
+        ).optimize()
+        
+        # Delete commas pattern for Bengali - REQUIRES at least one comma
+        delete_commas_bengali = (
+            pynini.closure(NEMO_BN_DIGIT, 1)  # One or more digits
+            + pynutil.delete(",")  # MUST have at least one comma
+            + pynini.closure(pynini.closure(NEMO_BN_DIGIT, 1) + pynini.closure(pynutil.delete(","), 0, 1))  # More digit groups
+        ).optimize()
+        
+        # Add comma support: compose delete_commas with final graphs
+        # For Bengali digits with commas
+        bengali_with_commas = pynini.compose(delete_commas_bengali, bengali_final_graph).optimize()
+        
+        # For Arabic digits with commas: delete commas, convert to Bengali, then process
+        arabic_with_commas = pynini.compose(
+            delete_commas_arabic,
+            arabic_to_bengali_number @ bengali_final_graph
+        ).optimize()
+        
+        # Give comma-separated numbers higher priority (lower weight)
+        bengali_final_with_commas = pynutil.add_weight(bengali_with_commas, -0.1) | bengali_cardinal_graph
+        arabic_final_with_commas = pynutil.add_weight(arabic_with_commas, -0.1) | arabic_final_graph
+
+        # Combine both Bengali and Arabic digit paths (both with comma support)
+        final_graph = bengali_final_with_commas | arabic_final_with_commas
 
         optional_minus_graph = pynini.closure(pynutil.insert("negative: ") + pynini.cross("-", "\"true\" "), 0, 1)
 
         self.final_graph = final_graph.optimize()
-        
-        # Handle operators around numbers
-        # Allow optional operators before and after the number
-        # Operators: + - * / ( ) & ^ % $ # @ ! < > , .
-        # Note: Date/time patterns (using /, :, -) have higher priority and will match first
-        # So operators won't interfere with dates like "12/25/2024" or times like "12:30"
-        
-        # Operators that can appear before a number (excluding - which is handled separately as negative)
-        operators_before = pynini.union("+", "*", "(", "&", "^", "%", "$", "#", "@", "!", "<", ">", ",")
-        # Operators that can appear after a number
-        # Note: / is included but date patterns will match first due to specificity
-        operators_after = pynini.union("+", "-", "*", "/", ")", "&", "^", "%", "$", "#", "@", "!", "<", ">", ",", ".")
-        
-        # Optional space around operators
-        optional_space = pynini.closure(NEMO_SPACE, 0, 1)
-        
-        # Operator before number
-        operator_before_graph = pynini.closure(
-            pynutil.insert("operator_before: \"") + 
-            (operators_before @ math_operations) + 
-            pynutil.insert("\" ") + 
-            optional_space,
-            0, 1
-        )
-        
-        # Operator after number
-        operator_after_graph = pynini.closure(
-            optional_space +
-            pynutil.insert(" operator_after: \"") + 
-            (operators_after @ math_operations) + 
-            pynutil.insert("\""),
-            0, 1
-        )
-        
-        # Number with optional operators
-        number_with_operators = (
-            operator_before_graph +
-            optional_minus_graph + 
-            pynutil.insert("integer: \"") + 
-            self.final_graph + 
-            pynutil.insert("\"") +
-            operator_after_graph
-        )
-        
-        # Also support simple number without operators (for backward compatibility)
-        simple_number = optional_minus_graph + pynutil.insert("integer: \"") + self.final_graph + pynutil.insert("\"")
-        
-        # Give simple numbers slightly higher priority (lower weight) to avoid operator matching when not needed
-        final_graph = pynutil.add_weight(simple_number, -0.01) | number_with_operators
+        final_graph = optional_minus_graph + pynutil.insert("integer: \"") + self.final_graph + pynutil.insert("\"")
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph
 

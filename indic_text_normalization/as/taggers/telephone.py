@@ -34,7 +34,7 @@ HI_LANDLINE_START_DIGITS = pynini.union("२", "३", "४", "६", "2", "3", "4
 
 delete_zero = pynutil.delete(HI_ZERO_DIGIT)
 delete_zero_optional = pynini.closure(delete_zero, 0, 1)
-insert_shunya = pynutil.insert('शून्य') + insert_space
+insert_shunya = pynutil.insert('শূন্য') + insert_space
 
 # Load the number mappings from the TSV file
 digit_to_word = pynini.string_file(get_abs_path("data/telephone/number.tsv"))
@@ -76,7 +76,7 @@ def generate_mobile(context_keywords: pynini.Fst) -> pynini.Fst:
     country_code = (
         pynutil.insert("country_code: \"")
         + context_before
-        + pynini.cross("+", "प्लस")
+        + pynini.cross("+", "প্লাছ")
         + insert_space
         + country_code_digits
         + pynutil.insert("\" ")
@@ -259,7 +259,7 @@ def generate_general_telephone() -> pynini.Fst:
     country_code_digits = pynini.closure(single_digit, 1, 3)
     country_code_with_plus = (
         pynutil.insert("country_code: \"")
-        + pynini.cross("+", "प्लस")
+        + pynini.cross("+", "প্লাছ")
         + insert_space
         + country_code_digits
         + pynutil.insert("\" ")

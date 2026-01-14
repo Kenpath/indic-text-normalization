@@ -15,7 +15,7 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.hi.graph_utils import NEMO_NOT_QUOTE, GraphFst, delete_space, insert_space
+from ..graph_utils import NEMO_NOT_QUOTE, GraphFst, delete_space, insert_space
 
 
 class MeasureFst(GraphFst):
