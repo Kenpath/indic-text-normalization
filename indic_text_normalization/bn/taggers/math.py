@@ -200,8 +200,26 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
         )
 
+        # Root expressions: √2, √3, etc. (square root)
+        # Support both with and without space: "√2" or "√ 2"
+        sqrt_symbol = pynini.accep("√")
+        optional_space_after_sqrt = pynini.closure(NEMO_SPACE, 0, 1)
+        sqrt_expression = (
+            pynutil.insert("left: \"")
+            + pynutil.insert("")
+            + pynutil.insert("\"")
+            + pynutil.insert("operator: \"")
+            + pynini.cross(sqrt_symbol, "বর্গমূল")
+            + pynutil.insert("\"")
+            + optional_space_after_sqrt
+            + pynutil.insert("right: \"")
+            + number_graph
+            + pynutil.insert("\"")
+        )
+
         final_graph = (
-            pynutil.add_weight(math_expression_tight_minus_equals, -0.2)
+            pynutil.add_weight(sqrt_expression, -0.1)  # Higher priority for root expressions
+            | pynutil.add_weight(math_expression_tight_minus_equals, -0.2)
             | pynutil.add_weight(math_expression_tight_minus_text, -0.15)
             | math_expression
             | extended_math

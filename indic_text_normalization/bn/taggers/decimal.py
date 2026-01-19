@@ -17,6 +17,7 @@ from pynini.lib import pynutil
 
 from indic_text_normalization.bn.graph_utils import (
     NEMO_DIGIT,
+    NEMO_BN_DIGIT,
     GraphFst,
     insert_space,
 )
@@ -30,6 +31,15 @@ arabic_to_bengali_digit = pynini.string_map([
     ("5", "৫"), ("6", "৬"), ("7", "৭"), ("8", "৮"), ("9", "৯")
 ]).optimize()
 arabic_to_bengali_number = pynini.closure(arabic_to_bengali_digit).optimize()
+
+# Create a graph that deletes commas from digit sequences
+# This handles Indian number format where commas are separators (e.g., 1,000,001.50)
+any_digit = pynini.union(NEMO_DIGIT, NEMO_BN_DIGIT)
+# Pattern: digit (comma? digit)* - accepts digits with optional commas, deletes commas
+delete_commas = (
+    any_digit
+    + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+).optimize()
 
 
 def get_quantity(decimal: 'pynini.FstLike', cardinal_up_to_hundred: 'pynini.FstLike') -> 'pynini.FstLike':
@@ -72,22 +82,22 @@ class DecimalFst(GraphFst):
     def __init__(self, cardinal: GraphFst, deterministic: bool = True):
         super().__init__(name="decimal", kind="classify", deterministic=deterministic)
 
-        # Get digit graphs from cardinal (maps Bengali digits to words)
-        graph_digit = cardinal.digit | cardinal.zero
-        cardinal_graph = cardinal.final_graph
-
-        # Bengali digit sequence: Bengali digits → words with spaces
-        bengali_digit_sequence = (graph_digit + pynini.closure(insert_space + graph_digit)).optimize()
+        # Support both Bengali and Arabic digits for fractional part
+        # Bengali digits path: Bengali digits -> cardinal digit/zero mapping
+        bengali_digit_graph = cardinal.digit | cardinal.zero
+        bengali_fractional_input = pynini.closure(NEMO_BN_DIGIT, 1)
+        bengali_fractional_graph = pynini.compose(bengali_fractional_input, bengali_digit_graph).optimize()
         
-        # Arabic digit sequence: Arabic digits → convert to Bengali → apply same sequence
-        arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
-        arabic_digit_sequence = pynini.compose(
-            arabic_digit_input,
-            arabic_to_bengali_number @ bengali_digit_sequence,
+        # Arabic digits path: Arabic digits -> convert to Bengali -> cardinal digit/zero mapping
+        arabic_fractional_input = pynini.closure(NEMO_DIGIT, 1)
+        arabic_fractional_graph = pynini.compose(
+            arabic_fractional_input,
+            arabic_to_bengali_number @ bengali_digit_graph
         ).optimize()
         
-        # Combined fractional part graph (supports both Bengali and Arabic digits)
-        self.graph = (bengali_digit_sequence | arabic_digit_sequence).optimize()
+        # Combined fractional digit graph (supports both Bengali and Arabic digits)
+        graph_digit = bengali_fractional_graph | arabic_fractional_graph
+        self.graph = graph_digit + pynini.closure(insert_space + graph_digit).optimize()
 
         # Handle both "." and "," as decimal separators (common in Indian number systems)
         point = pynutil.delete(pynini.union(".", ","))
@@ -98,13 +108,43 @@ class DecimalFst(GraphFst):
             1,
         )
 
-        # Integer part uses cardinal_graph directly (already handles both script types)
+        # Support both Bengali and Arabic digits for integer part
+        cardinal_graph = cardinal.final_graph
+        
+        # Bengali digits input for integer part
+        bengali_integer_input = pynini.closure(NEMO_BN_DIGIT, 1)
+        bengali_integer_graph = pynini.compose(bengali_integer_input, cardinal_graph).optimize()
+        
+        # Arabic digits input for integer part
+        arabic_integer_input = pynini.closure(NEMO_DIGIT, 1)
+        arabic_integer_graph = pynini.compose(
+            arabic_integer_input,
+            arabic_to_bengali_number @ cardinal_graph
+        ).optimize()
+        
+        # Add comma support for integer parts
+        # Bengali with commas
+        bengali_integer_with_commas = pynini.compose(delete_commas, cardinal_graph).optimize()
+        bengali_integer_combined = pynutil.add_weight(bengali_integer_with_commas, -0.1) | bengali_integer_graph
+        
+        # Arabic with commas
+        arabic_integer_with_commas = pynini.compose(
+            delete_commas,
+            arabic_to_bengali_number @ cardinal_graph
+        ).optimize()
+        arabic_integer_combined = pynutil.add_weight(arabic_integer_with_commas, -0.1) | arabic_integer_graph
+        
+        # Combined integer graph (supports both Bengali and Arabic digits, with and without commas)
+        integer_graph = bengali_integer_combined | arabic_integer_combined
+
         self.graph_fractional = pynutil.insert("fractional_part: \"") + self.graph + pynutil.insert("\"")
-        self.graph_integer = pynutil.insert("integer_part: \"") + cardinal_graph + pynutil.insert("\"")
+        self.graph_integer = pynutil.insert("integer_part: \"") + integer_graph + pynutil.insert("\"")
 
         final_graph_wo_sign = self.graph_integer + point + insert_space + self.graph_fractional
 
-        self.final_graph_wo_negative = final_graph_wo_sign | get_quantity(final_graph_wo_sign, cardinal_graph)
+        # For quantity support, we also need to support both digit types
+        cardinal_graph_combined = integer_graph
+        self.final_graph_wo_negative = final_graph_wo_sign | get_quantity(final_graph_wo_sign, cardinal_graph_combined)
 
         final_graph = optional_graph_negative + self.final_graph_wo_negative
 

@@ -20,6 +20,10 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.brx.graph_utils import (
+    NEMO_DIGIT,
+    NEMO_HI_DIGIT,
+    NEMO_ALPHA,
+    NEMO_SIGMA,
     NEMO_SPACE,
     NEMO_WHITE_SPACE,
     GraphFst,
@@ -250,7 +254,13 @@ class ClassifyFst(GraphFst):
             graph = pynini.union(graph, punct)
 
             start_time = time.time()
-            self.fst = graph.optimize()
+            # Insert space between mathematical symbols (√, ∑, ∫, etc.) and following digits/letters
+            # Example: "√2" -> "√ 2", "∑x" -> "∑ x"
+            math_symbols = pynini.union("√", "∑", "∏", "∫", "∬", "∭", "∮", "∂", "∇").optimize()
+            following_char = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT, NEMO_ALPHA).optimize()
+            math_symbol_to_spaced = pynini.cdrewrite(pynutil.insert(" "), math_symbols, following_char, NEMO_SIGMA)
+
+            self.fst = (math_symbol_to_spaced @ graph).optimize()
             logging.debug(f"final graph optimization: {time.time() - start_time:.2f}s -- {self.fst.num_states()} nodes")
 
             if far_file:

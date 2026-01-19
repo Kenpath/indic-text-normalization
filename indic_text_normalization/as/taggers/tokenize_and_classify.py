@@ -23,6 +23,7 @@ from ..graph_utils import (
     NEMO_DIGIT,
     NEMO_AS_DIGIT,
     NEMO_HI_DIGIT,
+    NEMO_ALPHA,
     NEMO_NOT_SPACE,
     NEMO_SIGMA,
     NEMO_SPACE,
@@ -318,8 +319,14 @@ class ClassifyFst(GraphFst):
             #   "3.14—আৰু" -> "3.14 আৰু"
             emdash_joiner_to_space = pynini.cdrewrite(pynini.cross("—", " "), digit_right, indic_block, NEMO_SIGMA)
 
+            # Insert space between mathematical symbols (√, ∑, ∫, etc.) and following digits/letters
+            # Example: "√2" -> "√ 2", "∑x" -> "∑ x"
+            math_symbols = pynini.union("√", "∑", "∏", "∫", "∬", "∭", "∮", "∂", "∇").optimize()
+            following_char = pynini.union(NEMO_DIGIT, NEMO_AS_DIGIT, NEMO_HI_DIGIT, NEMO_ALPHA).optimize()
+            math_symbol_to_spaced = pynini.cdrewrite(pynutil.insert(" "), math_symbols, following_char, NEMO_SIGMA)
+
             # Apply preprocessing in order: first handle special chars, then specific separators, then direct attachments
-            self.fst = (digit_special_insert_space @ digit_indic_insert_space @ underscore_to_space @ emdash_joiner_to_space @ emdash_to_spaced @ equals_to_spaced @ joiner_hyphen_to_space @ graph).optimize()
+            self.fst = (math_symbol_to_spaced @ digit_special_insert_space @ digit_indic_insert_space @ underscore_to_space @ emdash_joiner_to_space @ emdash_to_spaced @ equals_to_spaced @ joiner_hyphen_to_space @ graph).optimize()
             logging.debug(f"final graph optimization: {time.time() - start_time:.2f}s -- {self.fst.num_states()} nodes")
 
             if far_file:
