@@ -20,6 +20,11 @@ from indic_text_normalization.mr.utils import get_abs_path
 
 quantities = pynini.string_file(get_abs_path("data/numbers/thousands.tsv"))
 
+arabic_to_marathi_digit = pynini.string_map([
+    ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
+    ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
+]).optimize()
+
 
 def get_quantity(decimal: 'pynini.FstLike', cardinal_up_to_hundred: 'pynini.FstLike') -> 'pynini.FstLike':
     """
@@ -60,6 +65,10 @@ class DecimalFst(GraphFst):
 
         graph_digit = cardinal.digit | cardinal.zero
         cardinal_graph = cardinal.final_graph
+
+        # Support Arabic digits by mapping to Marathi
+        graph_digit |= arabic_to_marathi_digit @ graph_digit
+        cardinal_graph |= pynini.closure(arabic_to_marathi_digit) @ cardinal_graph
 
         self.graph = graph_digit + pynini.closure(insert_space + graph_digit).optimize()
 

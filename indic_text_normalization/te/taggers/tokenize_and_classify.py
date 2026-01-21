@@ -46,21 +46,9 @@ from indic_text_normalization.te.taggers.whitelist import WhiteListFst
 from indic_text_normalization.te.taggers.word import WordFst
 
 
+from indic_text_normalization.te.taggers.serial import SerialFst
+
 class ClassifyFst(GraphFst):
-    """
-    Final class that composes all other classification grammars. This class can process an entire sentence including punctuation.
-    For deployment, this grammar will be compiled and exported to OpenFst Finite State Archive (FAR) File.
-    More details to deployment at NeMo/tools/text_processing_deployment.
-
-    Args:
-        input_case: accepting either "lower_cased" or "cased" input.
-        deterministic: if True will provide a single transduction option,
-            for False multiple options (used for audio-based normalization)
-        cache_dir: path to a dir with .far grammar file. Set to None to avoid using cache.
-        overwrite_cache: set to True to overwrite .far files
-        whitelist: path to a file with whitelist replacements
-    """
-
     def __init__(
         self,
         input_case: str,
@@ -119,6 +107,9 @@ class ClassifyFst(GraphFst):
             scientific = ScientificFst(cardinal=cardinal, deterministic=deterministic)
             scientific_graph = scientific.fst
 
+            serial = SerialFst(cardinal=cardinal, ordinal=ordinal, deterministic=deterministic)
+            serial_graph = serial.fst
+
             whitelist_graph = WhiteListFst(
                 input_case=input_case, deterministic=deterministic, input_file=whitelist
             ).fst
@@ -146,6 +137,7 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(math_graph, 1.0)  # Math expressions after cardinals
                 | pynutil.add_weight(scientific_graph, 1.08)  # Higher priority for scientific notation
                 | pynutil.add_weight(power_graph, 1.09)  # Higher priority for superscripts
+                | pynutil.add_weight(serial_graph, 1.12)  # Serial numbers
             )
 
             word_graph = WordFst(punctuation=punctuation, deterministic=deterministic).fst

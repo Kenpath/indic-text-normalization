@@ -48,21 +48,9 @@ from indic_text_normalization.bho.taggers.power import PowerFst
 from indic_text_normalization.bho.taggers.scientific import ScientificFst
 
 
+from indic_text_normalization.bho.taggers.serial import SerialFst
+
 class ClassifyFst(GraphFst):
-    """
-    Final class that composes all other classification grammars. This class can process an entire sentence including punctuation.
-    For deployment, this grammar will be compiled and exported to OpenFst Finite State Archive (FAR) File.
-    More details to deployment at NeMo/tools/text_processing_deployment.
-
-    Args:
-        input_case: accepting either "lower_cased" or "cased" input.
-        deterministic: if True will provide a single transduction option,
-            for False multiple options (used for audio-based normalization)
-        cache_dir: path to a dir with .far grammar file. Set to None to avoid using cache.
-        overwrite_cache: set to True to overwrite .far files
-        whitelist: path to a file with whitelist replacements
-    """
-
     def __init__(
         self,
         input_case: str,
@@ -159,6 +147,11 @@ class ClassifyFst(GraphFst):
             punct_graph = punctuation.fst
             logging.debug(f"punct: {time.time() - start_time:.2f}s -- {punct_graph.num_states()} nodes")
 
+            start_time = time.time()
+            serial = SerialFst(cardinal=cardinal, ordinal=ordinal, deterministic=deterministic)
+            serial_graph = serial.fst
+            logging.debug(f"serial: {time.time() - start_time:.2f}s -- {serial_graph.num_states()} nodes")
+
             # Weight ordering - lower weight = higher priority
             classify = (
                 pynutil.add_weight(whitelist_graph, 1.01)
@@ -174,6 +167,7 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(money_graph, 1.1)
                 | pynutil.add_weight(ordinal_graph, 1.1)
                 | pynutil.add_weight(math_graph, 1.2)  # Math expressions lowest priority (avoid matching dashes as minus)
+                | pynutil.add_weight(serial_graph, 1.12)  # Serial numbers
             )
 
             start_time = time.time()

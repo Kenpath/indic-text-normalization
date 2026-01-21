@@ -47,21 +47,9 @@ from indic_text_normalization.bn.taggers.power import PowerFst
 from indic_text_normalization.bn.taggers.scientific import ScientificFst
 
 
+from indic_text_normalization.bn.taggers.serial import SerialFst
+
 class ClassifyFst(GraphFst):
-    """
-    Final class that composes all other classification grammars. This class can process an entire sentence including punctuation.
-    For deployment, this grammar will be compiled and exported to OpenFst Finite State Archive (FAR) File.
-    More details to deployment at NeMo/tools/text_processing_deployment.
-
-    Args:
-        input_case: accepting either "lower_cased" or "cased" input.
-        deterministic: if True will provide a single transduction option,
-            for False multiple options (used for audio-based normalization)
-        cache_dir: path to a dir with .far grammar file. Set to None to avoid using cache.
-        overwrite_cache: set to True to overwrite .far files
-        whitelist: path to a file with whitelist replacements
-    """
-
     def __init__(
         self,
         input_case: str,
@@ -152,6 +140,11 @@ class ClassifyFst(GraphFst):
             scientific_graph = scientific.fst
             logging.debug(f"power: {time.time() - start_time:.2f}s -- {power_graph.num_states()} nodes")
 
+            start_time = time.time()
+            serial = SerialFst(cardinal=cardinal, ordinal=ordinal, deterministic=deterministic)
+            serial_graph = serial.fst
+            logging.debug(f"serial: {time.time() - start_time:.2f}s -- {serial_graph.num_states()} nodes")
+
             classify = (
                 pynutil.add_weight(whitelist_graph, 1.01)
                 | pynutil.add_weight(time_graph, 1.1)
@@ -165,6 +158,7 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(math_graph, 1.1)
                 | pynutil.add_weight(scientific_graph, 1.08)  # Higher priority for scientific notation
                 | pynutil.add_weight(power_graph, 1.09)  # Higher priority for superscripts
+                | pynutil.add_weight(serial_graph, 1.12)  # Serial numbers
             )
 
             start_time = time.time()

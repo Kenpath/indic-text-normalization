@@ -16,7 +16,14 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.mr.graph_utils import GraphFst, insert_space
+from indic_text_normalization.mr.graph_utils import GraphFst, insert_space, NEMO_DIGIT
 from indic_text_normalization.mr.utils import get_abs_path
+
+# Convert Arabic digits (0-9) to Marathi digits (०-९)
+arabic_to_marathi_digit = pynini.string_map([
+    ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
+    ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
+]).optimize()
 
 
 class CardinalFst(GraphFst):
@@ -32,33 +39,63 @@ class CardinalFst(GraphFst):
     def __init__(self, deterministic: bool = True, lm: bool = False):
         super().__init__(name="cardinal", kind="classify", deterministic=deterministic)
 
-        digit = pynini.string_file(get_abs_path("data/numbers/digit.tsv"))
-        zero = pynini.string_file(get_abs_path("data/numbers/zero.tsv"))
-        teens_ties = pynini.string_file(get_abs_path("data/numbers/teens_and_ties.tsv"))
+        digit_file = pynini.string_file(get_abs_path("data/numbers/digit.tsv"))
+        zero_file = pynini.string_file(get_abs_path("data/numbers/zero.tsv"))
+        teens_ties_file = pynini.string_file(get_abs_path("data/numbers/teens_and_ties.tsv"))
+        
+        # Robust input converter: 
+        # 1. Accepts Marathi digits (used as is)
+        # 2. Accepts Arabic digits (mapped to Marathi)
+        # 3. Deletes commas anywhere
+        # Output is always pure Marathi digits string.
+        
+        # Map Arabic to Marathi OR Identity on Marathi
+        utf8_digits = pynini.project(arabic_to_marathi_digit, "output")
+        map_digits = arabic_to_marathi_digit | utf8_digits
+        
+        # Allow commas to be deleted freely around/between digits
+        clean_input = pynini.closure(pynutil.delete(","), 0, 1) + map_digits + pynini.closure(pynutil.delete(","), 0, 1)
+        # Closure to allow sequences (like 12 for teens)
+        clean_input_seq = pynini.closure(map_digits | pynutil.delete(","))
+
+        # Apply to files
+        # digit: matches single digit
+        digit = clean_input @ digit_file
+        zero = clean_input @ zero_file
+        
+        # teens: matches 2 digits (e.g. 12 or 1,2)
+        teens_ties = clean_input_seq @ teens_ties_file
+        
         teens_and_ties = pynutil.add_weight(teens_ties, -0.1)
 
         self.digit = digit
         self.zero = zero
         self.teens_and_ties = teens_and_ties
+        
+        # Helper to delete zero (0 or ०), handling optional commas
+        # Matches "0", "०", ",0", "0,", ",0," etc.
+        delete_zero = pynutil.add_weight(pynini.cross("0", "") | pynutil.delete("०"), -0.1)
+        # Cleanly allow surrounding commas
+        delete_zero_with_comma = pynini.closure(pynutil.delete(","), 0, 1) + delete_zero + pynini.closure(pynutil.delete(","), 0, 1)
 
         def create_graph_suffix(digit_graph, suffix, zeros_counts):
-            zero = pynutil.add_weight(pynutil.delete("०"), -0.1)
             if zeros_counts == 0:
                 return digit_graph + suffix
 
-            return digit_graph + (zero**zeros_counts) + suffix
+            return digit_graph + (delete_zero_with_comma**zeros_counts) + suffix
 
         def create_larger_number_graph(digit_graph, suffix, zeros_counts, sub_graph):
             insert_space = pynutil.insert(" ")
-            zero = pynutil.add_weight(pynutil.delete("०"), -0.1)
             if zeros_counts == 0:
                 return digit_graph + suffix + insert_space + sub_graph
 
-            return digit_graph + suffix + (zero**zeros_counts) + insert_space + sub_graph
+            return digit_graph + suffix + (delete_zero_with_comma**zeros_counts) + insert_space + sub_graph
 
         # Hundred graph
         suffix_hundreds = pynutil.insert(" शे")
-        hundred_alone = pynini.cross("१००", "शंभर")
+        hundred_alone = pynini.cross("१००", "शंभर") | pynini.cross("100", "शंभर")
+        # Handle 1,00 (comma)? Usually 100 doesn't have comma, but to be safe:
+        hundred_alone = pynini.closure(pynutil.delete(","), 0, 1) + hundred_alone + pynini.closure(pynutil.delete(","), 0, 1)
         graph_hundreds = create_graph_suffix(digit, suffix_hundreds, 2)
         graph_hundreds |= create_larger_number_graph(digit, suffix_hundreds, 1, digit)
         graph_hundreds |= create_larger_number_graph(digit, suffix_hundreds, 0, teens_ties)

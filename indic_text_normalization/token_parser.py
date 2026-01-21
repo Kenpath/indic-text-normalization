@@ -165,7 +165,7 @@ class TokenParser:
                 raise ValueError()
 
         if not l:
-            return None
+            return ""
         return "".join(l)
 
     def parse_ws(self):
