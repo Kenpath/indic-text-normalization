@@ -21,11 +21,12 @@ from pynini.lib import pynutil
 
 from indic_text_normalization.brx.graph_utils import (
     NEMO_DIGIT,
-    NEMO_HI_DIGIT,
+    NEMO_BRX_DIGIT,
     NEMO_ALPHA,
     NEMO_SIGMA,
     NEMO_SPACE,
     NEMO_WHITE_SPACE,
+    NEMO_NOT_SPACE,
     GraphFst,
     delete_extra_space,
     delete_space,
@@ -48,6 +49,8 @@ from indic_text_normalization.brx.taggers.telephone import TelephoneFst
 from indic_text_normalization.brx.taggers.time import TimeFst
 from indic_text_normalization.brx.taggers.whitelist import WhiteListFst
 from indic_text_normalization.brx.taggers.word import WordFst
+from indic_text_normalization.brx.taggers.power import PowerFst
+from indic_text_normalization.brx.taggers.scientific import ScientificFst
 from indic_text_normalization.brx.verbalizers.date import DateFst as vDateFst
 from indic_text_normalization.brx.verbalizers.ordinal import OrdinalFst as vOrdinalFst
 from indic_text_normalization.brx.verbalizers.time import TimeFst as vTimeFst
@@ -134,9 +137,17 @@ class ClassifyFst(GraphFst):
 
             start_time = time.time()
             from indic_text_normalization.brx.taggers.math import MathFst
-            math = MathFst(cardinal=cardinal, deterministic=deterministic)
+            math = MathFst(cardinal=cardinal, decimal=decimal, deterministic=deterministic)
             math_graph = math.fst
             logging.debug(f"math: {time.time() - start_time:.2f}s -- {math_graph.num_states()} nodes")
+
+            start_time = time.time()
+            power = PowerFst(cardinal=cardinal, deterministic=deterministic)
+            power_graph = power.fst
+
+            scientific = ScientificFst(cardinal=cardinal, deterministic=deterministic)
+            scientific_graph = scientific.fst
+            logging.debug(f"power: {time.time() - start_time:.2f}s -- {power_graph.num_states()} nodes")
 
             start_time = time.time()
             whitelist = WhiteListFst(
@@ -207,7 +218,9 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(telephone_graph, 0.9)  # Higher priority than cardinal (lower weight = higher priority)
                 | pynutil.add_weight(electronic_graph, 1.11)
                 | pynutil.add_weight(fraction_graph, 1.1)
-                | pynutil.add_weight(math_graph, 1.1)
+                | pynutil.add_weight(math_graph, 1.07)  # Math expressions before scientific (to handle π=3.14 correctly) - lower weight = higher priority
+                | pynutil.add_weight(scientific_graph, 1.08)  # Scientific notation after math
+                | pynutil.add_weight(power_graph, 1.09)  # Higher priority for superscripts
                 | pynutil.add_weight(range_graph, 1.1)
                 | pynutil.add_weight(serial_graph, 1.12)  # should be higher than the rest of the classes
                 | pynutil.add_weight(graph_range_money, 1.1)
@@ -253,14 +266,36 @@ class ClassifyFst(GraphFst):
             graph = delete_space + graph + delete_space
             graph = pynini.union(graph, punct)
 
+            # Rewrite joiner hyphens between digits and Bodo letters to spaces.
+            # Example: "3.14-वहाँ" -> "3.14 वहाँ"
+            # This prevents "π = 3.1415...-वहाँ" from being glued into one token.
+            brx_block = pynini.union(*[chr(i) for i in range(0x0900, 0x0980)]).optimize()
+            left_ctx = pynini.union(NEMO_DIGIT, NEMO_BRX_DIGIT).optimize()
+            right_ctx = brx_block
+            joiner_hyphen_to_space = pynini.cdrewrite(pynini.cross("-", " "), left_ctx, pynini.union(right_ctx, NEMO_ALPHA), NEMO_SIGMA)
             start_time = time.time()
+            # Also ensure glued equals patterns like "π=3.1415" tokenize cleanly without enumerating symbols.
+            # Only apply when the left side is NOT a digit (so we don't change "10-2=8" tight math behavior).
+            non_digit_left = pynini.difference(
+                NEMO_NOT_SPACE, pynini.union(NEMO_DIGIT, NEMO_BRX_DIGIT)
+            ).optimize()
+            digit_right = pynini.union(NEMO_DIGIT, NEMO_BRX_DIGIT).optimize()
+            equals_to_spaced = pynini.cdrewrite(pynini.cross("=", " = "), non_digit_left, digit_right, NEMO_SIGMA)
+
+            # Also separate em-dash glued to a following number, e.g. "—3.14" so decimals can match.
+            emdash_to_spaced = pynini.cdrewrite(pynini.cross("—", "— "), "", digit_right, NEMO_SIGMA)
+
+            # And convert em-dash used as a joiner between digits and Bodo letters into a space:
+            #   "3.14—और" -> "3.14 और"
+            emdash_joiner_to_space = pynini.cdrewrite(pynini.cross("—", " "), digit_right, brx_block, NEMO_SIGMA)
+
             # Insert space between mathematical symbols (√, ∑, ∫, etc.) and following digits/letters
             # Example: "√2" -> "√ 2", "∑x" -> "∑ x"
             math_symbols = pynini.union("√", "∑", "∏", "∫", "∬", "∭", "∮", "∂", "∇").optimize()
-            following_char = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT, NEMO_ALPHA).optimize()
+            following_char = pynini.union(NEMO_DIGIT, NEMO_BRX_DIGIT, NEMO_ALPHA).optimize()
             math_symbol_to_spaced = pynini.cdrewrite(pynutil.insert(" "), math_symbols, following_char, NEMO_SIGMA)
 
-            self.fst = (math_symbol_to_spaced @ graph).optimize()
+            self.fst = (math_symbol_to_spaced @ emdash_joiner_to_space @ emdash_to_spaced @ equals_to_spaced @ joiner_hyphen_to_space @ graph).optimize()
             logging.debug(f"final graph optimization: {time.time() - start_time:.2f}s -- {self.fst.num_states()} nodes")
 
             if far_file:

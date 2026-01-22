@@ -32,7 +32,7 @@ class RomanFst(GraphFst):
     def __init__(self, deterministic: bool = True):
         super().__init__(name="roman", kind="verbalize", deterministic=deterministic)
         
-        # Load ordinal mappings for Hindi
+        # Load ordinal mappings for Bodo
         try:
             ordinal_digit = pynini.string_file(get_abs_path("data/ordinal/digit.tsv")).invert()
             ordinal_teen = pynini.string_file(get_abs_path("data/ordinal/teen.tsv")).invert()
@@ -75,7 +75,7 @@ class RomanFst(GraphFst):
             + pynutil.delete("\"")
             + pynini.accep(" ")
             + pynutil.delete("integer: \"")
-            + pynini.closure(pynutil.insert(""), 0, 1)  # Hindi doesn't use "the" prefix
+            + pynini.closure(pynutil.insert(""), 0, 1)  # Bodo doesn't use "the" prefix
             + ordinal
             + pynutil.delete("\"")
         ).optimize()

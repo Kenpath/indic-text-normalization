@@ -15,7 +15,7 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.brx.graph_utils import NEMO_NOT_QUOTE, GraphFst, delete_space, insert_space
+from ..graph_utils import NEMO_NOT_QUOTE, GraphFst, delete_space, insert_space
 
 
 class MathFst(GraphFst):
@@ -68,9 +68,9 @@ class MathFst(GraphFst):
             + pynutil.delete("\"")
         )
 
-        operator2 = (
+        operator_two = (
             delete_space
-            + pynutil.delete("operator2:")
+            + pynutil.delete("operator_two:")
             + delete_space
             + pynutil.delete("\"")
             + pynini.closure(NEMO_NOT_QUOTE, 1)
@@ -82,9 +82,9 @@ class MathFst(GraphFst):
             left + insert_space + operator + insert_space + right
         )
 
-        # Extended expression: left operator middle operator2 right
+        # Extended expression: left operator middle operator_two right
         extended_expression = (
-            left + insert_space + operator + insert_space + middle + insert_space + operator2 + insert_space + right
+            left + insert_space + operator + insert_space + middle + insert_space + operator_two + insert_space + right
         )
 
         # Operator with number (e.g., "+5" -> "प्लस पांच")

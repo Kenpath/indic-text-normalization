@@ -27,9 +27,28 @@ from pynini.lib import byte, pynutil, utf8
 NEMO_CHAR = utf8.VALID_UTF8_CHAR
 NEMO_DIGIT = byte.DIGIT
 
-NEMO_HI_DIGIT = pynini.union("०", "१", "२", "३", "४", "५", "६", "७", "८", "९").optimize()
-NEMO_HI_NON_ZERO = pynini.union("१", "२", "३", "४", "५", "६", "७", "८", "९").optimize()
-NEMO_HI_ZERO = "०"
+NEMO_BRX_DIGIT = pynini.union("०", "१", "२", "३", "४", "५", "६", "७", "८", "९").optimize()
+NEMO_BRX_NON_ZERO = pynini.union("१", "२", "३", "४", "५", "६", "७", "८", "९").optimize()
+NEMO_BRX_ZERO = "०"
+# Aliases for backward compatibility (can be removed later)
+NEMO_HI_DIGIT = NEMO_BRX_DIGIT
+NEMO_HI_NON_ZERO = NEMO_BRX_NON_ZERO
+NEMO_HI_ZERO = NEMO_BRX_ZERO
+
+# Superscript characters for powers/exponents
+NEMO_SUPERSCRIPT_DIGIT = pynini.union("⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹").optimize()
+NEMO_SUPERSCRIPT_MINUS = "⁻"
+NEMO_SUPERSCRIPT_PLUS = "⁺"
+
+# Mapping from superscript to regular digits
+superscript_to_digit = pynini.string_map([
+    ("⁰", "0"), ("¹", "1"), ("²", "2"), ("³", "3"), ("⁴", "4"),
+    ("⁵", "5"), ("⁶", "6"), ("⁷", "7"), ("⁸", "8"), ("⁹", "9")
+]).optimize()
+
+superscript_to_sign = pynini.string_map([
+    ("⁻", "-"), ("⁺", "+")
+]).optimize()
 
 # Bodo-specific fractional terms
 BO_DEDH = "डेढ़"  # 1.5
@@ -38,12 +57,18 @@ BO_SAVVA = "सवा"  # quarter more (1.25)
 BO_SADHE = "साढ़े"  # half more (X.5)
 BO_PAUNE = "पौने"  # quarter less (0.75)
 
-# Aliases for compatibility with measure.py imports
-HI_DEDH = BO_DEDH  # 1.5
-HI_DHAI = BO_DHAI  # 2.5
-HI_SAVVA = BO_SAVVA  # quarter more
-HI_SADHE = BO_SADHE  # half more
-HI_PAUNE = BO_PAUNE  # quarter less
+# Bodo fractional terms (using BRX prefix)
+BRX_DEDH = BO_DEDH  # 1.5
+BRX_DHAI = BO_DHAI  # 2.5
+BRX_SAVVA = BO_SAVVA  # quarter more
+BRX_SADHE = BO_SADHE  # half more
+BRX_PAUNE = BO_PAUNE  # quarter less
+# Aliases for backward compatibility (can be removed later)
+HI_DEDH = BO_DEDH
+HI_DHAI = BO_DHAI
+HI_SAVVA = BO_SAVVA
+HI_SADHE = BO_SADHE
+HI_PAUNE = BO_PAUNE
 
 
 NEMO_LOWER = pynini.union(*string.ascii_lowercase).optimize()

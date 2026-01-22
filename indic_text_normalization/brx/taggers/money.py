@@ -18,6 +18,8 @@ from pynini.lib import pynutil
 from indic_text_normalization.brx.graph_utils import (
     GraphFst,
     NEMO_DIGIT,
+    NEMO_BRX_DIGIT,
+    # Backward compatibility
     NEMO_HI_DIGIT,
     insert_space,
 )
@@ -48,7 +50,7 @@ class MoneyFst(GraphFst):
 
         # Create a graph that deletes commas from digit sequences
         # This handles Indian number format where commas are separators (e.g., 5,67,300)
-        any_digit = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT)
+        any_digit = pynini.union(NEMO_DIGIT, NEMO_BRX_DIGIT)
         # Pattern: digit (comma? digit)* - accepts digits with optional commas, deletes commas
         # This creates a transducer: input (with commas) -> output (without commas)
         delete_commas = (

@@ -19,6 +19,8 @@ from pynini.lib import pynutil
 from indic_text_normalization.brx.graph_utils import (
     NEMO_CHAR,
     NEMO_DIGIT,
+    NEMO_BRX_DIGIT,
+    # Backward compatibility
     NEMO_HI_DIGIT,
     NEMO_SPACE,
     NEMO_WHITE_SPACE,
@@ -28,11 +30,15 @@ from indic_text_normalization.brx.graph_utils import (
 )
 from indic_text_normalization.brx.utils import get_abs_path
 
-HI_ZERO_DIGIT = pynini.union("0", "०")
-HI_MOBILE_START_DIGITS = pynini.union("६", "७", "८", "९", "6", "7", "8", "9").optimize()
-HI_LANDLINE_START_DIGITS = pynini.union("२", "३", "४", "६", "2", "3", "4", "6").optimize()
+BRX_ZERO_DIGIT = pynini.union("0", "०")
+BRX_MOBILE_START_DIGITS = pynini.union("६", "७", "८", "९", "6", "7", "8", "9").optimize()
+BRX_LANDLINE_START_DIGITS = pynini.union("२", "३", "४", "६", "2", "3", "4", "6").optimize()
+# Backward compatibility aliases
+HI_ZERO_DIGIT = BRX_ZERO_DIGIT
+HI_MOBILE_START_DIGITS = BRX_MOBILE_START_DIGITS
+HI_LANDLINE_START_DIGITS = BRX_LANDLINE_START_DIGITS
 
-delete_zero = pynutil.delete(HI_ZERO_DIGIT)
+delete_zero = pynutil.delete(BRX_ZERO_DIGIT)
 delete_zero_optional = pynini.closure(delete_zero, 0, 1)
 insert_shunya = pynutil.insert('शून्य') + insert_space
 
@@ -45,28 +51,28 @@ landline_context = pynini.string_file(get_abs_path("data/telephone/landline_cont
 credit_context = pynini.string_file(get_abs_path("data/telephone/credit_context.tsv"))
 pincode_context = pynini.string_file(get_abs_path("data/telephone/pincode_context.tsv"))
 
-# Convert Arabic digits (0-9) to Hindi digits (०-९) for pattern matching
-arabic_to_hindi_digit = pynini.string_map([
+# Convert Arabic digits (0-9) to Bodo digits (०-९) for pattern matching
+arabic_to_brx_digit = pynini.string_map([
     ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
     ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
 ]).optimize()
 
 # Reusable optimized graph for any digit token
-# Supports both Arabic digits (via digit_to_word) and Hindi digits (via digits)
+# Supports both Arabic digits (via digit_to_word) and Bodo digits (via digits)
 num_token = pynini.union(digit_to_word, digits, zero).optimize()
 
 # Pattern to match any digit (Arabic or Hindi) for telephone numbers
-any_digit = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT)
+any_digit = pynini.union(NEMO_DIGIT, NEMO_BRX_DIGIT)
 
 
 def generate_mobile(context_keywords: pynini.Fst) -> pynini.Fst:
     context_before, context_after = get_context(context_keywords)
 
     # Filter cardinals to only include allowed digits
-    # Support both Arabic and Hindi digits for mobile start digits
+    # Support both Arabic and Bodo digits for mobile start digits
     mobile_start_digit = pynini.union(
-        HI_MOBILE_START_DIGITS @ digits, 
-        HI_MOBILE_START_DIGITS @ digit_to_word
+        BRX_MOBILE_START_DIGITS @ digits, 
+        BRX_MOBILE_START_DIGITS @ digit_to_word
     )
 
     # Country code: match Arabic or Hindi digits, then convert to words
@@ -93,10 +99,10 @@ def generate_mobile(context_keywords: pynini.Fst) -> pynini.Fst:
         1,
     )
 
-    # Number part: match Arabic or Hindi digits, then convert to words digit-by-digit
+    # Number part: match Arabic or Bodo digits, then convert to words digit-by-digit
     # Mobile number: 1 start digit + 9 more digits = 10 digits total
     # First digit must be a mobile start digit (6, 7, 8, 9)
-    mobile_first_digit = pynini.compose(HI_MOBILE_START_DIGITS, num_token) + insert_space
+    mobile_first_digit = pynini.compose(BRX_MOBILE_START_DIGITS, num_token) + insert_space
     remaining_digits = pynini.closure(pynini.compose(any_digit, num_token) + insert_space, 9)
     number_part = mobile_first_digit + remaining_digits
 
@@ -128,17 +134,17 @@ def get_landline(std_length: int, context_keywords: pynini.Fst) -> pynini.Fst:
 
     # Filter cardinals to only include allowed digits
     # Support both Arabic and Hindi digits
-    landline_start_digit = pynini.union(HI_LANDLINE_START_DIGITS @ digits, HI_LANDLINE_START_DIGITS @ digit_to_word)
+    landline_start_digit = pynini.union(BRX_LANDLINE_START_DIGITS @ digits, BRX_LANDLINE_START_DIGITS @ digit_to_word)
 
-    # STD code: match Arabic or Hindi digits, convert to words
+    # STD code: match Arabic or Bodo digits, convert to words
     std_code_graph = (
         delete_zero_optional + insert_shunya + pynini.closure(pynini.compose(any_digit, num_token) + insert_space, std_length, std_length)
     )
 
     landline_digit_count = 9 - std_length
-    # Landline number: match Arabic or Hindi digits, convert to words
+    # Landline number: match Arabic or Bodo digits, convert to words
     # First digit must be a landline start digit
-    landline_first_digit = pynini.compose(HI_LANDLINE_START_DIGITS, num_token) + insert_space
+    landline_first_digit = pynini.compose(BRX_LANDLINE_START_DIGITS, num_token) + insert_space
     landline_remaining = pynini.closure(pynini.compose(any_digit, num_token) + insert_space, landline_digit_count - 1)
     landline_graph = landline_first_digit + landline_remaining
 
@@ -183,7 +189,7 @@ def generate_landline(context_keywords: pynini.Fst) -> pynini.Fst:
 
 def get_context(keywords: pynini.Fst):
 
-    all_digits = pynini.union(NEMO_HI_DIGIT, NEMO_DIGIT)
+    all_digits = pynini.union(NEMO_BRX_DIGIT, NEMO_DIGIT)
 
     non_digit_char = pynini.difference(NEMO_CHAR, pynini.union(all_digits, NEMO_WHITE_SPACE))
     word = pynini.closure(non_digit_char, 1) + pynini.accep(NEMO_SPACE)
@@ -213,7 +219,7 @@ def generate_credit(context_keywords: pynini.Fst) -> pynini.Fst:
 
 def generate_pincode(context_keywords: pynini.Fst) -> pynini.Fst:
     context_before, context_after = get_context(context_keywords)
-    # Pincode: match Arabic or Hindi digits, convert to words digit-by-digit
+    # Pincode: match Arabic or Bodo digits, convert to words digit-by-digit
     pincode_digits = pynini.closure(pynini.compose(any_digit, num_token) + insert_space, 6)
     return (
         pynutil.insert("number_part: \"")

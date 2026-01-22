@@ -17,18 +17,22 @@ from pynini.lib import pynutil
 
 from indic_text_normalization.brx.graph_utils import (
     NEMO_DIGIT,
+    NEMO_BRX_DIGIT,
+    # Backward compatibility
     NEMO_HI_DIGIT,
     NEMO_SPACE,
     GraphFst,
 )
 from indic_text_normalization.brx.utils import get_abs_path
 
-# Convert Arabic digits (0-9) to Hindi digits (०-९)
-arabic_to_hindi_digit = pynini.string_map([
+# Convert Arabic digits (0-9) to Bodo digits (०-९)
+arabic_to_brx_digit = pynini.string_map([
     ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
     ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
 ]).optimize()
-arabic_to_hindi_number = pynini.closure(arabic_to_hindi_digit).optimize()
+arabic_to_brx_number = pynini.closure(arabic_to_brx_digit).optimize()
+# Backward compatibility alias
+arabic_to_hindi_number = arabic_to_brx_number
 
 
 class FractionFst(GraphFst):
@@ -51,20 +55,20 @@ class FractionFst(GraphFst):
 
         cardinal_graph = cardinal.final_graph
         
-        # Support both Hindi and Arabic digits for integer, numerator, and denominator
-        # Hindi digits input
-        hindi_number_input = pynini.closure(NEMO_HI_DIGIT, 1)
-        hindi_number_graph = pynini.compose(hindi_number_input, cardinal_graph).optimize()
+        # Support both Bodo and Arabic digits for integer, numerator, and denominator
+        # Bodo digits input
+        brx_number_input = pynini.closure(NEMO_BRX_DIGIT, 1)
+        brx_number_graph = pynini.compose(brx_number_input, cardinal_graph).optimize()
         
         # Arabic digits input
         arabic_number_input = pynini.closure(NEMO_DIGIT, 1)
         arabic_number_graph = pynini.compose(
             arabic_number_input,
-            arabic_to_hindi_number @ cardinal_graph
+            arabic_to_brx_number @ cardinal_graph
         ).optimize()
         
-        # Combined number graph (supports both Hindi and Arabic digits)
-        number_graph = hindi_number_graph | arabic_number_graph
+        # Combined number graph (supports both Bodo and Arabic digits)
+        number_graph = brx_number_graph | arabic_number_graph
 
         optional_graph_negative = pynini.closure(
             pynutil.insert("negative: ") + pynini.cross("-", "\"true\"") + pynutil.insert(NEMO_SPACE), 0, 1

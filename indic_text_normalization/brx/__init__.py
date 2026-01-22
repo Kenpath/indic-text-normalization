@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from indic_text_normalization.brx.taggers.tokenize_and_classify import ClassifyFst
-from indic_text_normalization.brx.verbalizers.verbalize import VerbalizeFst
-from indic_text_normalization.brx.verbalizers.verbalize_final import VerbalizeFinalFst
+# Imports removed to avoid circular import issues.
+# These classes are imported directly by normalize.py using importlib.
+# from indic_text_normalization.brx.taggers.tokenize_and_classify import ClassifyFst
+# from indic_text_normalization.brx.verbalizers.verbalize import VerbalizeFst
+# from indic_text_normalization.brx.verbalizers.verbalize_final import VerbalizeFinalFst

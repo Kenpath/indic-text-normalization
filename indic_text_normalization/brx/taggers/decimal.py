@@ -17,6 +17,8 @@ from pynini.lib import pynutil
 
 from indic_text_normalization.brx.graph_utils import (
     NEMO_DIGIT,
+    NEMO_BRX_DIGIT,
+    # Backward compatibility
     NEMO_HI_DIGIT,
     GraphFst,
     insert_space,
@@ -25,12 +27,14 @@ from indic_text_normalization.brx.utils import get_abs_path
 
 quantities = pynini.string_file(get_abs_path("data/numbers/thousands.tsv"))
 
-# Convert Arabic digits (0-9) to Hindi digits (०-९)
-arabic_to_hindi_digit = pynini.string_map([
+# Convert Arabic digits (0-9) to Bodo digits (०-९)
+arabic_to_brx_digit = pynini.string_map([
     ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
     ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
 ]).optimize()
-arabic_to_hindi_number = pynini.closure(arabic_to_hindi_digit).optimize()
+arabic_to_brx_number = pynini.closure(arabic_to_brx_digit).optimize()
+# Backward compatibility alias
+arabic_to_hindi_number = arabic_to_brx_number
 
 
 def get_quantity(decimal: 'pynini.FstLike', cardinal_up_to_hundred: 'pynini.FstLike') -> 'pynini.FstLike':
@@ -70,22 +74,23 @@ class DecimalFst(GraphFst):
     def __init__(self, cardinal: GraphFst, deterministic: bool = True):
         super().__init__(name="decimal", kind="classify", deterministic=deterministic)
 
-        # Support both Hindi and Arabic digits for fractional part
-        # Hindi digits path: Hindi digits -> cardinal digit/zero mapping
-        hindi_digit_graph = cardinal.digit | cardinal.zero
-        hindi_fractional_input = pynini.closure(NEMO_HI_DIGIT, 1)
-        hindi_fractional_graph = pynini.compose(hindi_fractional_input, hindi_digit_graph).optimize()
+        # Support both Bodo and Arabic digits for fractional part
+        # Bodo digits path: Bodo digits -> cardinal digit/zero mapping
+        digit_word_graph = cardinal.digit | cardinal.zero
         
-        # Arabic digits path: Arabic digits -> convert to Hindi -> cardinal digit/zero mapping
-        arabic_fractional_input = pynini.closure(NEMO_DIGIT, 1)
+        # This graph converts a sequence of Bodo digits (०-९) to verbalized digits with spaces (e.g., "०१" -> "शून्य से")
+        # Input side: NEMO_BRX_DIGIT+ ; Output side: BodoWords with spaces
+        brx_fractional_graph = (digit_word_graph + pynini.closure(insert_space + digit_word_graph)).optimize()
+        
+        # Arabic digits path: Arabic digits -> convert to Bodo -> verbalized digits
+        # We compose Arabic-to-Bodo conversion with the Bodo-to-Words graph
         arabic_fractional_graph = pynini.compose(
-            arabic_fractional_input,
-            arabic_to_hindi_number @ hindi_digit_graph
+            pynini.closure(NEMO_DIGIT, 1),
+            arabic_to_brx_number @ brx_fractional_graph
         ).optimize()
         
-        # Combined fractional digit graph (supports both Hindi and Arabic digits)
-        graph_digit = hindi_fractional_graph | arabic_fractional_graph
-        self.graph = graph_digit + pynini.closure(insert_space + graph_digit).optimize()
+        # Combined fractional digit graph (supports both Bodo and Arabic digits)
+        self.graph = brx_fractional_graph | arabic_fractional_graph
 
         point = pynutil.delete(".")
 
@@ -95,22 +100,22 @@ class DecimalFst(GraphFst):
             1,
         )
 
-        # Support both Hindi and Arabic digits for integer part
+        # Support both Bodo and Arabic digits for integer part
         cardinal_graph = cardinal.final_graph
         
-        # Hindi digits input for integer part
-        hindi_integer_input = pynini.closure(NEMO_HI_DIGIT, 1)
-        hindi_integer_graph = pynini.compose(hindi_integer_input, cardinal_graph).optimize()
+        # Bodo digits input for integer part
+        brx_integer_input = pynini.closure(NEMO_BRX_DIGIT, 1)
+        brx_integer_graph = pynini.compose(brx_integer_input, cardinal_graph).optimize()
         
         # Arabic digits input for integer part
         arabic_integer_input = pynini.closure(NEMO_DIGIT, 1)
         arabic_integer_graph = pynini.compose(
             arabic_integer_input,
-            arabic_to_hindi_number @ cardinal_graph
+            arabic_to_brx_number @ cardinal_graph
         ).optimize()
         
-        # Combined integer graph (supports both Hindi and Arabic digits)
-        integer_graph = hindi_integer_graph | arabic_integer_graph
+        # Combined integer graph (supports both Bodo and Arabic digits)
+        integer_graph = brx_integer_graph | arabic_integer_graph
 
         self.graph_fractional = pynutil.insert("fractional_part: \"") + self.graph + pynutil.insert("\"")
         self.graph_integer = pynutil.insert("integer_part: \"") + integer_graph + pynutil.insert("\"")

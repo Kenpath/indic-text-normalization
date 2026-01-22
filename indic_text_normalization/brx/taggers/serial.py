@@ -25,6 +25,7 @@ from indic_text_normalization.brx.graph_utils import (
     GraphFst,
     convert_space,
 )
+from indic_text_normalization.brx.taggers.word import WordFst
 from indic_text_normalization.brx.utils import get_abs_path, load_labels
 
 
@@ -41,6 +42,7 @@ class SerialFst(GraphFst):
     """
 
     def __init__(self, cardinal: GraphFst, ordinal: GraphFst, deterministic: bool = True, lm: bool = False):
+
         super().__init__(name="integer", kind="classify", deterministic=deterministic)
 
         """
@@ -49,6 +51,15 @@ class SerialFst(GraphFst):
             The serial is a combination of digits, letters and dashes, e.g.:
             c325b -> tokens { cardinal { integer: "c तीन दो पाँच b" } }
         """
+        # Bodo characters
+        BRX_CHAR = pynini.union(
+            *[chr(i) for i in range(0x0900, 0x0903 + 1)],
+            *[chr(i) for i in range(0x0905, 0x0939 + 1)],
+            *[chr(i) for i in range(0x093E, 0x094D + 1)],
+        ).optimize()
+        
+        alpha_num_seq = NEMO_ALPHA | BRX_CHAR
+        
         if deterministic:
             # For Hindi, use final_graph for numbers
             num_graph = pynini.compose(NEMO_DIGIT ** (6, ...), cardinal.final_graph).optimize()
@@ -62,7 +73,7 @@ class SerialFst(GraphFst):
 
         # TODO: "#" doesn't work from the file
         symbols_graph = pynini.string_file(get_abs_path("data/whitelist/abbreviations.tsv")).optimize() | pynini.cross(
-            "#", "hash"
+            "#", "हैश"
         )
         num_graph |= symbols_graph
 
@@ -79,8 +90,8 @@ class SerialFst(GraphFst):
         digit_symbol = NEMO_DIGIT | symbols
 
         graph_with_space = pynini.compose(
-            pynini.cdrewrite(pynutil.insert(" "), NEMO_ALPHA | symbols, digit_symbol, NEMO_SIGMA),
-            pynini.cdrewrite(pynutil.insert(" "), digit_symbol, NEMO_ALPHA | symbols, NEMO_SIGMA),
+            pynini.cdrewrite(pynutil.insert(" "), alpha_num_seq | symbols, digit_symbol, NEMO_SIGMA),
+            pynini.cdrewrite(pynutil.insert(" "), digit_symbol, alpha_num_seq | symbols, NEMO_SIGMA),
         )
 
         # serial graph with delimiter
@@ -88,7 +99,7 @@ class SerialFst(GraphFst):
         if not deterministic:
             delimiter |= pynini.cross("-", " dash ") | pynini.cross("/", " slash ")
 
-        alphas = pynini.closure(NEMO_ALPHA, 1)
+        alphas = pynini.closure(alpha_num_seq, 1)
         letter_num = alphas + delimiter + num_graph
         num_letter = pynini.closure(num_graph + delimiter, 1) + alphas
         next_alpha_or_num = pynini.closure(delimiter + (alphas | num_graph))
@@ -109,7 +120,7 @@ class SerialFst(GraphFst):
         serial_graph |= pynini.compose(NEMO_SIGMA + symbols + NEMO_SIGMA, num_graph + delimiter + num_graph)
 
         # exclude ordinal numbers from serial options
-        # Note: In Hindi, ordinals use Hindi digits (०-९) while serials use ASCII digits (0-9)
+        # Note: In Bodo, ordinals use Bodo digits (०-९) while serials use ASCII digits (0-9)
         # So there's minimal overlap. The exclusion is attempted but skipped if it fails.
         try:
             ordinal_input = ordinal_input.rmepsilon()

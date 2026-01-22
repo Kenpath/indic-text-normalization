@@ -20,7 +20,7 @@ from indic_text_normalization.brx.graph_utils import NEMO_NOT_QUOTE, GraphFst, d
 
 class OrdinalFst(GraphFst):
     """
-    Finite state transducer for verbalizing Hindi ordinals, e.g.
+    Finite state transducer for verbalizing Bodo ordinals, e.g.
         ordinal { integer: "दसवां" } -> दसवां
         ordinal { integer: "इक्कीसवीं" } -> इक्कीसवीं
 

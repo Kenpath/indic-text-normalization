@@ -19,7 +19,7 @@ from indic_text_normalization.brx.graph_utils import NEMO_CHAR, NEMO_SIGMA, Grap
 
 class WordFst(GraphFst):
     """
-    Finite state transducer for verbalizing Hindi words.
+    Finite state transducer for verbalizing Bodo words.
         e.g. tokens { name: "सोना" } -> सोना
 
     Args:

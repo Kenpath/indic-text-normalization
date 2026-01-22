@@ -16,36 +16,50 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.brx.graph_utils import (
+    BRX_DEDH,
+    BRX_DHAI,
+    BRX_PAUNE,
+    BRX_SADHE,
+    BRX_SAVVA,
+    NEMO_DIGIT,
+    NEMO_BRX_DIGIT,
+    NEMO_SPACE,
+    GraphFst,
+    insert_space,
+    # Backward compatibility aliases
     HI_DEDH,
     HI_DHAI,
     HI_PAUNE,
     HI_SADHE,
     HI_SAVVA,
-    NEMO_DIGIT,
     NEMO_HI_DIGIT,
-    NEMO_SPACE,
-    GraphFst,
-    insert_space,
 )
 from indic_text_normalization.brx.utils import get_abs_path
 
 # Time patterns specific to time tagger
-HI_DOUBLE_ZERO = "००"
-HI_TIME_FIFTEEN = ":१५"  # :15
-HI_TIME_THIRTY = ":३०"  # :30
-HI_TIME_FORTYFIVE = ":४५"  # :45
+BRX_DOUBLE_ZERO = "००"
+BRX_TIME_FIFTEEN = ":१५"  # :15
+BRX_TIME_THIRTY = ":३०"  # :30
+BRX_TIME_FORTYFIVE = ":४५"  # :45
+# Backward compatibility aliases
+HI_DOUBLE_ZERO = BRX_DOUBLE_ZERO
+HI_TIME_FIFTEEN = BRX_TIME_FIFTEEN
+HI_TIME_THIRTY = BRX_TIME_THIRTY
+HI_TIME_FORTYFIVE = BRX_TIME_FORTYFIVE
 
 # Arabic time patterns
 AR_TIME_FIFTEEN = ":15"
 AR_TIME_THIRTY = ":30"
 AR_TIME_FORTYFIVE = ":45"
 
-# Convert Arabic digits (0-9) to Hindi digits (०-९)
-arabic_to_hindi_digit = pynini.string_map([
+# Convert Arabic digits (0-9) to Bodo digits (०-९)
+arabic_to_brx_digit = pynini.string_map([
     ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
     ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
 ]).optimize()
-arabic_to_hindi_number = pynini.closure(arabic_to_hindi_digit).optimize()
+arabic_to_brx_number = pynini.closure(arabic_to_brx_digit).optimize()
+# Backward compatibility alias
+arabic_to_hindi_number = arabic_to_brx_number
 
 hours_graph = pynini.string_file(get_abs_path("data/time/hours.tsv"))
 minutes_graph = pynini.string_file(get_abs_path("data/time/minutes.tsv"))
@@ -83,50 +97,50 @@ class TimeFst(GraphFst):
             # This handles: "0" + digit (like "09" -> "9") OR just digit (like "9" -> "9")
             pynini.closure(pynutil.delete("0"), 0, 1) + NEMO_DIGIT
         )
-        # For Hindi: same pattern with Hindi digits
-        delete_leading_zero_hindi = (
-            # Match two Hindi digits
-            NEMO_HI_DIGIT + NEMO_HI_DIGIT
+        # For Bodo: same pattern with Bodo digits
+        delete_leading_zero_brx = (
+            # Match two Bodo digits
+            NEMO_BRX_DIGIT + NEMO_BRX_DIGIT
         ) | (
-            # Match optional leading "०" (0 or 1 times) + Hindi digit
-            pynini.closure(pynutil.delete("०"), 0, 1) + NEMO_HI_DIGIT
+            # Match optional leading "०" (0 or 1 times) + Bodo digit
+            pynini.closure(pynutil.delete("०"), 0, 1) + NEMO_BRX_DIGIT
         )
 
-        # Support both Hindi and Arabic digits for hours and minutes
-        # For hours: delete leading zeros, then convert to Hindi if needed, then map to hours_graph
-        # Hindi digits path: Hindi digits (with leading zero deletion) -> hours_graph
-        hindi_hour_path = pynini.compose(
-            delete_leading_zero_hindi,
+        # Support both Bodo and Arabic digits for hours and minutes
+        # For hours: delete leading zeros, then convert to Bodo if needed, then map to hours_graph
+        # Bodo digits path: Bodo digits (with leading zero deletion) -> hours_graph
+        brx_hour_path = pynini.compose(
+            delete_leading_zero_brx,
             hours_graph
         ).optimize()
-        # Arabic digits path: delete leading zero -> convert to Hindi -> hours_graph
+        # Arabic digits path: delete leading zero -> convert to Bodo -> hours_graph
         arabic_hour_path = pynini.compose(
             delete_leading_zero_arabic,
-            arabic_to_hindi_number @ hours_graph
+            arabic_to_brx_number @ hours_graph
         ).optimize()
-        hour_input = hindi_hour_path | arabic_hour_path
+        hour_input = brx_hour_path | arabic_hour_path
 
         # For minutes: same approach
-        hindi_minute_path = pynini.compose(
-            delete_leading_zero_hindi,
+        brx_minute_path = pynini.compose(
+            delete_leading_zero_brx,
             minutes_graph
         ).optimize()
         arabic_minute_path = pynini.compose(
             delete_leading_zero_arabic,
-            arabic_to_hindi_number @ minutes_graph
+            arabic_to_brx_number @ minutes_graph
         ).optimize()
-        minute_input = hindi_minute_path | arabic_minute_path
+        minute_input = brx_minute_path | arabic_minute_path
 
         # For seconds: same approach
-        hindi_second_path = pynini.compose(
-            delete_leading_zero_hindi,
+        brx_second_path = pynini.compose(
+            delete_leading_zero_brx,
             seconds_graph
         ).optimize()
         arabic_second_path = pynini.compose(
             delete_leading_zero_arabic,
-            arabic_to_hindi_number @ seconds_graph
+            arabic_to_brx_number @ seconds_graph
         ).optimize()
-        second_input = hindi_second_path | arabic_second_path
+        second_input = brx_second_path | arabic_second_path
 
         self.hours = pynutil.insert("hours: \"") + hour_input + pynutil.insert("\" ")
         self.minutes = pynutil.insert("minutes: \"") + minute_input + pynutil.insert("\" ")
@@ -140,37 +154,37 @@ class TimeFst(GraphFst):
         # hour minute
         graph_hm = self.hours + delete_colon + insert_space + self.minutes
 
-        # hour - support both Hindi and Arabic double zero
-        hindi_double_zero = pynutil.delete(HI_DOUBLE_ZERO)
+        # hour - support both Bodo and Arabic double zero
+        brx_double_zero = pynutil.delete(BRX_DOUBLE_ZERO)
         arabic_double_zero = pynutil.delete("00")
-        double_zero = hindi_double_zero | arabic_double_zero
+        double_zero = brx_double_zero | arabic_double_zero
         graph_h = self.hours + delete_colon + double_zero
 
-        # Support both Hindi and Arabic time patterns for dedh/dhai
+        # Support both Bodo and Arabic time patterns for dedh/dhai
         dedh_dhai_graph = (
-            pynini.string_map([("१" + HI_TIME_THIRTY, HI_DEDH), ("२" + HI_TIME_THIRTY, HI_DHAI)])
-            | pynini.string_map([("1" + AR_TIME_THIRTY, HI_DEDH), ("2" + AR_TIME_THIRTY, HI_DHAI)])
+            pynini.string_map([("१" + BRX_TIME_THIRTY, BRX_DEDH), ("२" + BRX_TIME_THIRTY, BRX_DHAI)])
+            | pynini.string_map([("1" + AR_TIME_THIRTY, BRX_DEDH), ("2" + AR_TIME_THIRTY, BRX_DHAI)])
         )
 
-        # Support both Hindi and Arabic time patterns
+        # Support both Bodo and Arabic time patterns
         savva_numbers = (
-            (cardinal_graph + pynini.cross(HI_TIME_FIFTEEN, ""))
+            (cardinal_graph + pynini.cross(BRX_TIME_FIFTEEN, ""))
             | (cardinal_graph + pynini.cross(AR_TIME_FIFTEEN, ""))
         )
-        savva_graph = pynutil.insert(HI_SAVVA) + pynutil.insert(NEMO_SPACE) + savva_numbers
+        savva_graph = pynutil.insert(BRX_SAVVA) + pynutil.insert(NEMO_SPACE) + savva_numbers
 
         sadhe_numbers = (
-            (cardinal_graph + pynini.cross(HI_TIME_THIRTY, ""))
+            (cardinal_graph + pynini.cross(BRX_TIME_THIRTY, ""))
             | (cardinal_graph + pynini.cross(AR_TIME_THIRTY, ""))
         )
-        sadhe_graph = pynutil.insert(HI_SADHE) + pynutil.insert(NEMO_SPACE) + sadhe_numbers
+        sadhe_graph = pynutil.insert(BRX_SADHE) + pynutil.insert(NEMO_SPACE) + sadhe_numbers
 
         paune = pynini.string_file(get_abs_path("data/whitelist/paune_mappings.tsv"))
         paune_numbers = (
-            (paune + pynini.cross(HI_TIME_FORTYFIVE, ""))
+            (paune + pynini.cross(BRX_TIME_FORTYFIVE, ""))
             | (paune + pynini.cross(AR_TIME_FORTYFIVE, ""))
         )
-        paune_graph = pynutil.insert(HI_PAUNE) + pynutil.insert(NEMO_SPACE) + paune_numbers
+        paune_graph = pynutil.insert(BRX_PAUNE) + pynutil.insert(NEMO_SPACE) + paune_numbers
 
         graph_dedh_dhai = (
             pynutil.insert("morphosyntactic_features: \"")

@@ -34,7 +34,7 @@ class CardinalFst(GraphFst):
         self.optional_sign = pynini.cross("negative: \"true\"", MINUS)
         if not deterministic:
             self.optional_sign |= pynini.cross("negative: \"true\"", MINUS)
-            # Keep alternative forms if needed, but use Hindi MINUS as primary
+            # Keep alternative forms if needed, but use Bodo MINUS as primary
 
         self.optional_sign = pynini.closure(self.optional_sign + delete_space, 0, 1)
 

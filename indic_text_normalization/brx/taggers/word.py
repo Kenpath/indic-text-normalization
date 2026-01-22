@@ -38,20 +38,22 @@ class WordFst(GraphFst):
     def __init__(self, punctuation: PunctuationFst, deterministic: bool = True):
         super().__init__(name="word", kind="classify", deterministic=deterministic)
 
-        # Define Hindi characters and symbols using pynini.union
-        HINDI_CHAR = pynini.union(
-            *[chr(i) for i in range(0x0900, 0x0903 + 1)],  # Hindi vowels and consonants
-            *[chr(i) for i in range(0x0905, 0x0939 + 1)],  # More Hindi characters
-            *[chr(i) for i in range(0x093E, 0x094D + 1)],  # Hindi diacritics
+        # Define Bodo/Devanagari characters and symbols using pynini.union
+        BRX_CHAR = pynini.union(
+            *[chr(i) for i in range(0x0900, 0x0903 + 1)],  # Devanagari vowels and consonants
+            *[chr(i) for i in range(0x0905, 0x0939 + 1)],  # More Devanagari characters
+            *[chr(i) for i in range(0x093E, 0x094D + 1)],  # Devanagari diacritics
         ).optimize()
+        # Backward compatibility alias
+        HINDI_CHAR = BRX_CHAR
 
         # Include punctuation in the graph
         punct = punctuation.graph
         default_graph = pynini.closure(pynini.difference(NEMO_NOT_SPACE, punct.project("input")), 1)
         symbols_to_exclude = (pynini.union("$", "€", "₩", "£", "¥", "#", "%") | punct).optimize()
 
-        # Use HINDI_CHAR in the graph
-        graph = pynini.closure(pynini.difference(HINDI_CHAR, symbols_to_exclude), 1)
+        # Use BRX_CHAR in the graph
+        graph = pynini.closure(pynini.difference(BRX_CHAR, symbols_to_exclude), 1)
         graph = pynutil.add_weight(graph, MIN_NEG_WEIGHT) | default_graph
 
         # Ensure no spaces around punctuation

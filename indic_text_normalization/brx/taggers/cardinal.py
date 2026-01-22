@@ -15,15 +15,27 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.brx.graph_utils import GraphFst, NEMO_DIGIT, insert_space
+from indic_text_normalization.brx.graph_utils import GraphFst, NEMO_DIGIT, NEMO_BRX_DIGIT, insert_space
 from indic_text_normalization.brx.utils import get_abs_path
 
-# Convert Arabic digits (0-9) to Hindi digits (०-९)
-arabic_to_hindi_digit = pynini.string_map([
+# Convert Arabic digits (0-9) to Bodo digits (०-९)
+arabic_to_brx_digit = pynini.string_map([
     ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
     ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
 ]).optimize()
-arabic_to_hindi_number = pynini.closure(arabic_to_hindi_digit).optimize()
+arabic_to_brx_number = pynini.closure(arabic_to_brx_digit).optimize()
+# Backward compatibility alias
+arabic_to_hindi_number = arabic_to_brx_number
+
+# Create a graph that deletes commas from digit sequences
+# This handles Indian number format where commas are separators (e.g., 1,000,001 or 5,67,300)
+any_digit = pynini.union(NEMO_DIGIT, NEMO_BRX_DIGIT)
+# Pattern: digit (comma? digit)* - accepts digits with optional commas, deletes commas
+# This creates a transducer: input (with commas) -> output (without commas)
+delete_commas = (
+    any_digit
+    + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+).optimize()
 
 
 class CardinalFst(GraphFst):
@@ -312,9 +324,9 @@ class CardinalFst(GraphFst):
         graph_leading_zero = pynutil.add_weight(graph_leading_zero, 0.5)
 
         # Combine all number patterns efficiently
-        # Support both Hindi digits and Arabic digits
-        # Hindi digits go directly to final_graph
-        hindi_final_graph = (
+        # Support both Bodo digits and Arabic digits
+        # Bodo digits go directly to final_graph
+        brx_final_graph = (
             digit
             | zero
             | teens_and_ties
@@ -338,12 +350,30 @@ class CardinalFst(GraphFst):
             | graph_leading_zero
         ).optimize()
 
-        # Arabic digits: convert to Hindi, then apply the same graph
-        arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
-        arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_hindi_number @ hindi_final_graph).optimize()
+        # Add comma support: compose delete_commas with brx_final_graph
+        # This allows inputs like "1,000,001" or "१,००,००१" to be processed
+        brx_with_commas = pynini.compose(delete_commas, brx_final_graph).optimize()
+        
+        # Give comma-separated numbers higher priority (lower weight)
+        brx_final_with_commas = pynutil.add_weight(brx_with_commas, -0.1) | brx_final_graph
 
-        # Combine both Hindi and Arabic digit paths
-        final_graph = hindi_final_graph | arabic_final_graph
+        # Arabic digits: convert to Bodo, then apply the same graph
+        arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
+        
+        # For Arabic digits with commas: delete commas first, then convert and process
+        arabic_with_commas = pynini.compose(
+            delete_commas,
+            arabic_to_brx_number @ brx_final_graph
+        ).optimize()
+        
+        # Regular Arabic digits without commas
+        arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_brx_number @ brx_final_graph).optimize()
+        
+        # Combine: prioritize comma-separated, fallback to regular
+        arabic_final_with_commas = pynutil.add_weight(arabic_with_commas, -0.1) | arabic_final_graph
+
+        # Combine both Bodo and Arabic digit paths (both with comma support)
+        final_graph = brx_final_with_commas | arabic_final_with_commas
 
         optional_minus_graph = pynini.closure(pynutil.insert("negative: ") + pynini.cross("-", "\"true\" "), 0, 1)
 

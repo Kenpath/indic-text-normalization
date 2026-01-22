@@ -17,14 +17,14 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.brx.graph_utils import (
-    HI_DEDH,
-    HI_DHAI,
-    HI_PAUNE,
-    HI_SADHE,
-    HI_SAVVA,
+    BRX_DEDH,
+    BRX_DHAI,
+    BRX_PAUNE,
+    BRX_SADHE,
+    BRX_SAVVA,
     NEMO_ALPHA,
     NEMO_DIGIT,
-    NEMO_HI_DIGIT,
+    NEMO_BRX_DIGIT,
     NEMO_NON_BREAKING_SPACE,
     NEMO_SIGMA,
     NEMO_SPACE,
@@ -34,21 +34,36 @@ from indic_text_normalization.brx.graph_utils import (
     delete_space,
     delete_zero_or_one_space,
     insert_space,
+    # Backward compatibility aliases
+    HI_DEDH,
+    HI_DHAI,
+    HI_PAUNE,
+    HI_SADHE,
+    HI_SAVVA,
+    NEMO_HI_DIGIT,
 )
 from indic_text_normalization.brx.utils import get_abs_path
 
-# Convert Arabic digits (0-9) to Hindi digits (०-९)
-arabic_to_hindi_digit = pynini.string_map([
+# Convert Arabic digits (0-9) to Bodo digits (०-९)
+arabic_to_brx_digit = pynini.string_map([
     ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
     ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
 ]).optimize()
-arabic_to_hindi_number = pynini.closure(arabic_to_hindi_digit).optimize()
+arabic_to_brx_number = pynini.closure(arabic_to_brx_digit).optimize()
+# Backward compatibility alias
+arabic_to_hindi_number = arabic_to_brx_number
 
-HI_POINT_FIVE = ".५"  # .5
-HI_ONE_POINT_FIVE = "१.५"  # 1.5
-HI_TWO_POINT_FIVE = "२.५"  # 2.5
-HI_DECIMAL_25 = ".२५"  # .25
-HI_DECIMAL_75 = ".७५"  # .75
+BRX_POINT_FIVE = ".५"  # .5
+BRX_ONE_POINT_FIVE = "१.५"  # 1.5
+BRX_TWO_POINT_FIVE = "२.५"  # 2.5
+BRX_DECIMAL_25 = ".२५"  # .25
+BRX_DECIMAL_75 = ".७५"  # .75
+# Backward compatibility aliases
+HI_POINT_FIVE = BRX_POINT_FIVE
+HI_ONE_POINT_FIVE = BRX_ONE_POINT_FIVE
+HI_TWO_POINT_FIVE = BRX_TWO_POINT_FIVE
+HI_DECIMAL_25 = BRX_DECIMAL_25
+HI_DECIMAL_75 = BRX_DECIMAL_75
 
 digit = pynini.string_file(get_abs_path("data/numbers/digit.tsv"))
 teens_ties = pynini.string_file(get_abs_path("data/numbers/teens_and_ties.tsv"))
@@ -74,9 +89,9 @@ class MeasureFst(GraphFst):
         self.deterministic = deterministic
 
         # Get cardinal graph with range support (like English)
-        # Support both Hindi and Arabic digits
-        # Hindi digits path
-        hindi_cardinal_graph_base = (
+        # Support both Bodo and Arabic digits
+        # Bodo digits path
+        brx_cardinal_graph_base = (
             cardinal.zero
             | cardinal.digit
             | cardinal.teens_and_ties
@@ -87,20 +102,20 @@ class MeasureFst(GraphFst):
             | cardinal.graph_ten_lakhs
         )
         
-        # Arabic digits path - convert to Hindi first, then compose with cardinal
-        # Hindi number input
-        hindi_number_input = pynini.closure(NEMO_HI_DIGIT, 1)
-        hindi_number_graph = pynini.compose(hindi_number_input, hindi_cardinal_graph_base).optimize()
+        # Arabic digits path - convert to Bodo first, then compose with cardinal
+        # Bodo number input
+        brx_number_input = pynini.closure(NEMO_BRX_DIGIT, 1)
+        brx_number_graph = pynini.compose(brx_number_input, brx_cardinal_graph_base).optimize()
         
-        # Arabic number input - convert to Hindi, then compose with cardinal
+        # Arabic number input - convert to Bodo, then compose with cardinal
         arabic_number_input = pynini.closure(NEMO_DIGIT, 1)
         arabic_number_graph = pynini.compose(
             arabic_number_input,
-            arabic_to_hindi_number @ hindi_cardinal_graph_base
+            arabic_to_brx_number @ brx_cardinal_graph_base
         ).optimize()
         
-        # Combined cardinal graph (supports both Hindi and Arabic digits)
-        cardinal_graph_base = hindi_number_graph | arabic_number_graph
+        # Combined cardinal graph (supports both Bodo and Arabic digits)
+        cardinal_graph_base = brx_number_graph | arabic_number_graph
         
         # Add range support (e.g., 2-3, 2x3, 2*2)
         cardinal_graph = cardinal_graph_base | self.get_range(cardinal_graph_base)
@@ -139,9 +154,9 @@ class MeasureFst(GraphFst):
         # Define the quarterly measurements
         quarter = pynini.string_map(
             [
-                (HI_POINT_FIVE, HI_SADHE),
-                (HI_ONE_POINT_FIVE, HI_DEDH),
-                (HI_TWO_POINT_FIVE, HI_DHAI),
+                (BRX_POINT_FIVE, BRX_SADHE),
+                (BRX_ONE_POINT_FIVE, BRX_DEDH),
+                (BRX_TWO_POINT_FIVE, BRX_DHAI),
             ]
         )
         quarter_graph = pynutil.insert("integer_part: \"") + quarter + pynutil.insert("\"")
@@ -196,32 +211,32 @@ class MeasureFst(GraphFst):
             + unit
         )
 
-        dedh_dhai = pynini.string_map([(HI_ONE_POINT_FIVE, HI_DEDH), (HI_TWO_POINT_FIVE, HI_DHAI)])
+        dedh_dhai = pynini.string_map([(BRX_ONE_POINT_FIVE, BRX_DEDH), (BRX_TWO_POINT_FIVE, BRX_DHAI)])
         dedh_dhai_graph = pynutil.insert("integer: \"") + dedh_dhai + pynutil.insert("\"")
 
-        savva_numbers = cardinal_graph_base + pynini.cross(HI_DECIMAL_25, "")
+        savva_numbers = cardinal_graph_base + pynini.cross(BRX_DECIMAL_25, "")
         savva_graph = (
             pynutil.insert("integer: \"")
-            + pynutil.insert(HI_SAVVA)
+            + pynutil.insert(BRX_SAVVA)
             + pynutil.insert(NEMO_SPACE)
             + savva_numbers
             + pynutil.insert("\"")
         )
 
-        sadhe_numbers = cardinal_graph_base + pynini.cross(HI_POINT_FIVE, "")
+        sadhe_numbers = cardinal_graph_base + pynini.cross(BRX_POINT_FIVE, "")
         sadhe_graph = (
             pynutil.insert("integer: \"")
-            + pynutil.insert(HI_SADHE)
+            + pynutil.insert(BRX_SADHE)
             + pynutil.insert(NEMO_SPACE)
             + sadhe_numbers
             + pynutil.insert("\"")
         )
 
         paune = pynini.string_file(get_abs_path("data/whitelist/paune_mappings.tsv"))
-        paune_numbers = paune + pynini.cross(HI_DECIMAL_75, "")
+        paune_numbers = paune + pynini.cross(BRX_DECIMAL_75, "")
         paune_graph = (
             pynutil.insert("integer: \"")
-            + pynutil.insert(HI_PAUNE)
+            + pynutil.insert(BRX_PAUNE)
             + pynutil.insert(NEMO_SPACE)
             + paune_numbers
             + pynutil.insert("\"")
