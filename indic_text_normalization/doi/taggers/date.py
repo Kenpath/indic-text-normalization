@@ -178,6 +178,9 @@ class DateFst(GraphFst):
 
         graph_mm_dd_yyyy = months_graph + delete_separator + days_graph + delete_separator + years_graph
 
+        # Support YYYY-MM-DD
+        graph_yyyy_mm_dd = years_graph + delete_separator + months_graph + delete_separator + days_graph
+
         graph_mm_dd_yyyy += pynutil.insert(" preserve_order: true ")
 
         graph_mm_yyyy = months_graph + delete_dash + insert_space + years_graph
@@ -202,6 +205,7 @@ class DateFst(GraphFst):
             | graph_mm_dd
             | pynutil.add_weight(graph_dd_mm_yyyy, -0.001)
             | graph_mm_dd_yyyy
+            | pynutil.add_weight(graph_yyyy_mm_dd, -0.001)
             | pynutil.add_weight(graph_mm_yyyy, -0.2)
             | pynutil.add_weight(graph_year_suffix, -0.001)
             | pynutil.add_weight(graph_range, -0.005)

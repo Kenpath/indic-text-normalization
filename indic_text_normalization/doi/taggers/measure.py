@@ -99,7 +99,7 @@ class MeasureFst(GraphFst):
             arabic_to_hindi_number @ hindi_cardinal_graph_base
         ).optimize()
         
-        # Combined cardinal graph (supports both Hindi and Arabic digits)
+        # Combined cardinal graph (supports both Dogri and Arabic digits)
         cardinal_graph_base = hindi_number_graph | arabic_number_graph
         
         # Add range support (e.g., 2-3, 2x3, 2*2)

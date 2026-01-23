@@ -12,6 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from indic_text_normalization.hi.taggers.tokenize_and_classify import ClassifyFst
-from indic_text_normalization.hi.verbalizers.verbalize import VerbalizeFst
-from indic_text_normalization.hi.verbalizers.verbalize_final import VerbalizeFinalFst
+from indic_text_normalization.doi.taggers.tokenize_and_classify import ClassifyFst
+from indic_text_normalization.doi.verbalizers.verbalize import VerbalizeFst
+from indic_text_normalization.doi.verbalizers.verbalize_final import VerbalizeFinalFst

@@ -53,6 +53,13 @@ class WhiteListFst(GraphFst):
             _get_whitelist_graph(input_case, get_abs_path("data/whitelist/symbol.tsv")),
         ).optimize()
 
+        # Load Greek letters
+        from indic_text_normalization.doi.graph_utils import NEMO_SIGMA
+        graph |= pynini.compose(
+            NEMO_SIGMA,
+            _get_whitelist_graph(input_case, get_abs_path("data/greek.tsv")),
+        ).optimize()
+
         if deterministic:
             graph |= graph.optimize()
         else:

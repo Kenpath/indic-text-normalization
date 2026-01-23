@@ -144,7 +144,15 @@ class TimeFst(GraphFst):
         dogri_double_zero = pynutil.delete(HI_DOUBLE_ZERO)
         arabic_double_zero = pynutil.delete("00")
         double_zero = dogri_double_zero | arabic_double_zero
+        double_zero = dogri_double_zero | arabic_double_zero
         graph_h = self.hours + delete_colon + double_zero
+
+        # Arabic digits to cardinal mapping for fractional time
+        arabic_to_dogri_cardinal = (
+            pynini.closure(NEMO_DIGIT, 1) 
+            @ arabic_to_dogri_number 
+            @ cardinal_graph
+        )
 
         # Support both Dogri and Arabic time patterns for dedh/dhai
         dedh_dhai_graph = (
@@ -155,20 +163,21 @@ class TimeFst(GraphFst):
         # Support both Dogri and Arabic time patterns
         savva_numbers = (
             (cardinal_graph + pynini.cross(HI_TIME_FIFTEEN, ""))
-            | (cardinal_graph + pynini.cross(AR_TIME_FIFTEEN, ""))
+            | (arabic_to_dogri_cardinal + pynini.cross(AR_TIME_FIFTEEN, ""))
         )
         savva_graph = pynutil.insert(HI_SAVVA) + pynutil.insert(NEMO_SPACE) + savva_numbers
 
         sadhe_numbers = (
             (cardinal_graph + pynini.cross(HI_TIME_THIRTY, ""))
-            | (cardinal_graph + pynini.cross(AR_TIME_THIRTY, ""))
+            | (arabic_to_dogri_cardinal + pynini.cross(AR_TIME_THIRTY, ""))
         )
         sadhe_graph = pynutil.insert(HI_SADHE) + pynutil.insert(NEMO_SPACE) + sadhe_numbers
 
         paune = pynini.string_file(get_abs_path("data/whitelist/paune_mappings.tsv"))
         paune_numbers = (
             (paune + pynini.cross(HI_TIME_FORTYFIVE, ""))
-            | (paune + pynini.cross(AR_TIME_FORTYFIVE, ""))
+            # For Arabic, we first map Arabic digits to Dogri digits, then to paune map
+            | ((pynini.closure(NEMO_DIGIT, 1) @ arabic_to_dogri_number @ paune) + pynini.cross(AR_TIME_FORTYFIVE, ""))
         )
         paune_graph = pynutil.insert(HI_PAUNE) + pynutil.insert(NEMO_SPACE) + paune_numbers
 

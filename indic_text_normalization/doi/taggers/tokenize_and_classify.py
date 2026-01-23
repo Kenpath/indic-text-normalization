@@ -36,9 +36,11 @@ from indic_text_normalization.doi.taggers.fraction import FractionFst
 from indic_text_normalization.doi.taggers.measure import MeasureFst
 from indic_text_normalization.doi.taggers.money import MoneyFst
 from indic_text_normalization.doi.taggers.ordinal import OrdinalFst
+from indic_text_normalization.doi.taggers.power import PowerFst
 from indic_text_normalization.doi.taggers.punctuation import PunctuationFst
 from indic_text_normalization.doi.taggers.range import RangeFst
 from indic_text_normalization.doi.taggers.roman import RomanFst
+from indic_text_normalization.doi.taggers.scientific import ScientificFst
 from indic_text_normalization.doi.taggers.serial import SerialFst
 from indic_text_normalization.doi.taggers.telephone import TelephoneFst
 from indic_text_normalization.doi.taggers.time import TimeFst
@@ -135,6 +137,16 @@ class ClassifyFst(GraphFst):
             logging.debug(f"math: {time.time() - start_time:.2f}s -- {math_graph.num_states()} nodes")
 
             start_time = time.time()
+            power = PowerFst(cardinal=cardinal, deterministic=deterministic)
+            power_graph = power.fst
+            logging.debug(f"power: {time.time() - start_time:.2f}s -- {power_graph.num_states()} nodes")
+
+            start_time = time.time()
+            scientific = ScientificFst(cardinal=cardinal, deterministic=deterministic)
+            scientific_graph = scientific.fst
+            logging.debug(f"scientific: {time.time() - start_time:.2f}s -- {scientific_graph.num_states()} nodes")
+
+            start_time = time.time()
             whitelist = WhiteListFst(
                 input_case=input_case, deterministic=deterministic, input_file=whitelist
             )
@@ -204,6 +216,8 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(electronic_graph, 1.11)
                 | pynutil.add_weight(fraction_graph, 1.1)
                 | pynutil.add_weight(math_graph, 1.1)
+                | pynutil.add_weight(power_graph, 1.09)  # Higher priority for power expressions
+                | pynutil.add_weight(scientific_graph, 1.09)  # Higher priority for scientific notation
                 | pynutil.add_weight(range_graph, 1.1)
                 | pynutil.add_weight(serial_graph, 1.12)  # should be higher than the rest of the classes
                 | pynutil.add_weight(graph_range_money, 1.1)

@@ -27,10 +27,31 @@ from pynini.lib import byte, pynutil, utf8
 NEMO_CHAR = utf8.VALID_UTF8_CHAR
 NEMO_DIGIT = byte.DIGIT
 
-NEMO_HI_DIGIT = pynini.union("०", "१", "२", "३", "४", "५", "६", "७", "८", "९").optimize()
-NEMO_HI_NON_ZERO = pynini.union("१", "२", "३", "४", "५", "६", "७", "८", "९").optimize()
-NEMO_HI_ZERO = "०"
+NEMO_DOI_DIGIT = pynini.union("०", "१", "२", "३", "४", "५", "६", "७", "८", "९").optimize()
+NEMO_DOI_NON_ZERO = pynini.union("१", "२", "३", "४", "५", "६", "७", "८", "९").optimize()
+NEMO_DOI_ZERO = "०"
 
+# For backward compatibility, keep HI_ aliases (Dogri uses Devanagari script same as Hindi)
+NEMO_HI_DIGIT = NEMO_DOI_DIGIT
+NEMO_HI_NON_ZERO = NEMO_DOI_NON_ZERO
+NEMO_HI_ZERO = NEMO_DOI_ZERO
+
+# Superscript digits and signs for power notation
+NEMO_SUPERSCRIPT_DIGIT = pynini.union("⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹").optimize()
+NEMO_SUPERSCRIPT_MINUS = "⁻"
+NEMO_SUPERSCRIPT_PLUS = "⁺"
+
+# Converters for superscript to regular digits and signs
+superscript_to_digit = pynini.string_map([
+    ("⁰", "0"), ("¹", "1"), ("²", "2"), ("³", "3"), ("⁴", "4"),
+    ("⁵", "5"), ("⁶", "6"), ("⁷", "7"), ("⁸", "8"), ("⁹", "9")
+]).optimize()
+
+superscript_to_sign = pynini.string_map([
+    ("⁻", "-"), ("⁺", "+")
+]).optimize()
+
+# Dogri specific constants
 HI_DEDH = "डेढ़"  # 1.5
 HI_DHAI = "ढाई"  # 2.5
 HI_SAVVA = "सवा"  # quarter more (1.25)
