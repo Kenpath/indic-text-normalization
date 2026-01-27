@@ -108,7 +108,20 @@ class ClassifyFst(GraphFst):
 
             from indic_text_normalization.gu.taggers.math import MathFst
             math = MathFst(cardinal=cardinal, deterministic=deterministic)
+            math = MathFst(cardinal=cardinal, deterministic=deterministic)
             math_graph = math.fst
+
+            from indic_text_normalization.gu.taggers.power import PowerFst
+            power = PowerFst(cardinal=cardinal, deterministic=deterministic)
+            power_graph = power.fst
+
+            from indic_text_normalization.gu.taggers.scientific import ScientificFst
+            scientific = ScientificFst(cardinal=cardinal, deterministic=deterministic)
+            scientific_graph = scientific.fst
+
+            from indic_text_normalization.gu.taggers.serial import SerialFst
+            serial = SerialFst(cardinal=cardinal, ordinal=ordinal, deterministic=deterministic)
+            serial_graph = serial.fst
 
             whitelist_graph = WhiteListFst(
                 input_case=input_case, deterministic=deterministic, input_file=whitelist
@@ -128,7 +141,10 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(fraction_graph, 1.1)
                 | pynutil.add_weight(money_graph, 1.1)
                 | pynutil.add_weight(math_graph, 1.15)  # Math expressions after cardinals
+                | pynutil.add_weight(power_graph, 1.15)
+                | pynutil.add_weight(scientific_graph, 1.15)
                 | pynutil.add_weight(ordinal_graph, 1.1)
+                | pynutil.add_weight(serial_graph, 1.2)  # Serial/alphanumeric patterns
             )
 
             word_graph = WordFst(punctuation=punctuation, deterministic=deterministic).fst

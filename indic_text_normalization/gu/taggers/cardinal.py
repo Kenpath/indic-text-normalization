@@ -30,6 +30,16 @@ arabic_to_gujarati_digit = pynini.string_map([
 ]).optimize()
 arabic_to_gujarati_number = pynini.closure(arabic_to_gujarati_digit).optimize()
 
+# Create a graph that deletes commas from digit sequences
+# This handles Indian number format where commas are separators (e.g., 1,000,001 or 5,67,300)
+any_digit = pynini.union(NEMO_DIGIT, NEMO_GU_DIGIT)
+# Pattern: digit (comma? digit)* - accepts digits with optional commas, deletes commas
+# This creates a transducer: input (with commas) -> output (without commas)
+delete_commas = (
+    any_digit
+    + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+).optimize()
+
 
 class CardinalFst(GraphFst):
     """
@@ -209,13 +219,31 @@ class CardinalFst(GraphFst):
             | graph_ten_crores
             | graph_leading_zero
         ).optimize()
+
+        # Add comma support: compose delete_commas with gujarati_final_graph
+        # This allows inputs like "૧,૦૦,૦૦૧" to be processed
+        gujarati_with_commas = pynini.compose(delete_commas, gujarati_final_graph).optimize()
+        
+        # Give comma-separated numbers higher priority (lower weight)
+        gujarati_final_with_commas = pynutil.add_weight(gujarati_with_commas, -0.1) | gujarati_final_graph
         
         # Arabic digits: convert to Gujarati, then apply the same graph
         arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
+        
+        # For Arabic digits with commas: delete commas first, then convert and process
+        arabic_with_commas = pynini.compose(
+            delete_commas,
+            arabic_to_gujarati_number @ gujarati_final_graph
+        ).optimize()
+        
+        # Regular Arabic digits without commas
         arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_gujarati_number @ gujarati_final_graph).optimize()
         
-        # Combine both Gujarati and Arabic digit paths
-        final_graph = gujarati_final_graph | arabic_final_graph
+        # Combine: prioritize comma-separated, fallback to regular
+        arabic_final_with_commas = pynutil.add_weight(arabic_with_commas, -0.1) | arabic_final_graph
+        
+        # Combine both Gujarati and Arabic digit paths (both with comma support)
+        final_graph = gujarati_final_with_commas | arabic_final_with_commas
 
         # Handle negative numbers
         optional_minus_graph = pynini.closure(

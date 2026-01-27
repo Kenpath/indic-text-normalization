@@ -55,6 +55,9 @@ class WhiteListFst(GraphFst):
             _get_whitelist_graph(input_case, get_abs_path("data/whitelist/symbol.tsv")),
         ).optimize()
 
+        # Load greek letters for standalone usage (e.g., λ -> લેમ્બડા)
+        graph |= _get_whitelist_graph(input_case, get_abs_path("data/greek.tsv")).optimize()
+
         if deterministic:
             graph |= graph.optimize()
         else:

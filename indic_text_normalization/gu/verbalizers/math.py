@@ -36,7 +36,7 @@ class MathFst(GraphFst):
             pynutil.delete("left:")
             + delete_space
             + pynutil.delete("\"")
-            + pynini.closure(NEMO_NOT_QUOTE, 1)
+            + pynini.closure(NEMO_NOT_QUOTE, 0)
             + pynutil.delete("\"")
         )
 
@@ -54,7 +54,7 @@ class MathFst(GraphFst):
             + pynutil.delete("right:")
             + delete_space
             + pynutil.delete("\"")
-            + pynini.closure(NEMO_NOT_QUOTE, 1)
+            + pynini.closure(NEMO_NOT_QUOTE, 0)
             + pynutil.delete("\"")
         )
 
@@ -68,9 +68,10 @@ class MathFst(GraphFst):
             + pynutil.delete("\"")
         )
 
+        # Handle both operator2 and operator_two (for compatibility)
         operator2 = (
             delete_space
-            + pynutil.delete("operator2:")
+            + pynutil.delete(pynini.union("operator2:", "operator_two:"))
             + delete_space
             + pynutil.delete("\"")
             + pynini.closure(NEMO_NOT_QUOTE, 1)
@@ -78,6 +79,7 @@ class MathFst(GraphFst):
         )
 
         # Simple expression: left operator right
+        # Handles binary (1+2) and unary (+2 or 2+) if left/right are empty strings
         simple_expression = left + insert_space + operator + insert_space + right
 
         # Extended expression: left operator middle operator2 right
@@ -88,4 +90,3 @@ class MathFst(GraphFst):
         graph = simple_expression | extended_expression
         delete_tokens = self.delete_tokens(graph)
         self.fst = delete_tokens.optimize()
-
