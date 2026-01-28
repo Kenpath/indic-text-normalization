@@ -36,7 +36,7 @@ class MathFst(GraphFst):
             pynutil.delete("left:")
             + delete_space
             + pynutil.delete("\"")
-            + pynini.closure(NEMO_NOT_QUOTE, 1)
+            + pynini.closure(NEMO_NOT_QUOTE, 0)  # Allow empty for operator_number pattern
             + pynutil.delete("\"")
         )
 
@@ -54,7 +54,7 @@ class MathFst(GraphFst):
             + pynutil.delete("right:")
             + delete_space
             + pynutil.delete("\"")
-            + pynini.closure(NEMO_NOT_QUOTE, 1)
+            + pynini.closure(NEMO_NOT_QUOTE, 0)  # Allow empty for number_operator pattern
             + pynutil.delete("\"")
         )
 
@@ -70,7 +70,7 @@ class MathFst(GraphFst):
 
         operator2 = (
             delete_space
-            + pynutil.delete("operator2:")
+            + pynutil.delete(pynini.union("operator2:", "operator_two:"))
             + delete_space
             + pynutil.delete("\"")
             + pynini.closure(NEMO_NOT_QUOTE, 1)
@@ -85,7 +85,22 @@ class MathFst(GraphFst):
             left + insert_space + operator + insert_space + middle + insert_space + operator2 + insert_space + right
         )
 
-        graph = simple_expression | extended_expression
+        # Operator with number (e.g., "+5" -> "जोड़ पाँच", "√ x" -> "वर्गमूळ x")
+        operator_number_expression = operator + insert_space + right
+
+        # Number with operator (e.g., "5+" -> "पाँच जोड़")
+        number_operator_expression = left + insert_space + operator
+
+        # Standalone operator (e.g., "+", "√")
+        standalone_operator_expression = operator
+
+        graph = (
+            simple_expression
+            | extended_expression
+            | operator_number_expression
+            | number_operator_expression
+            | standalone_operator_expression
+        )
         delete_tokens = self.delete_tokens(graph)
         self.fst = delete_tokens.optimize()
 

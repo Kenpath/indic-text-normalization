@@ -31,7 +31,14 @@ class WordFst(GraphFst):
         super().__init__(name="word", kind="verbalize", deterministic=deterministic)
         chars = pynini.closure(NEMO_CHAR - " ", 1)
         punct = pynini.union("!", "?", ".", ",", "-", ":", ";", "।")  # Add other punctuation marks as needed
-        char = pynutil.delete("name:") + delete_space + pynutil.delete("\"") + chars + pynutil.delete("\"")
+        punct_words = pynutil.add_weight(pynini.string_map([(",", "कॉमा")]), -0.1)
+        char = (
+            pynutil.delete("name:")
+            + delete_space
+            + pynutil.delete("\"")
+            + (punct_words | chars)
+            + pynutil.delete("\"")
+        )
 
         # Ensure no spaces around punctuation
         graph = char + pynini.closure(delete_space + punct, 0, 1)

@@ -48,6 +48,9 @@ class WhiteListFst(GraphFst):
             return graph
 
         graph = _get_whitelist_graph(input_case, get_abs_path("data/whitelist/abbreviations.tsv"))
+        
+        # Load Greek letters for standalone usage (e.g., λ -> लैम्ब्डा)
+        graph |= _get_whitelist_graph(input_case, get_abs_path("data/greek.tsv")).optimize()
 
         if deterministic:
             graph |= graph.optimize()

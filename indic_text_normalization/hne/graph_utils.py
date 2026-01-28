@@ -32,6 +32,21 @@ NEMO_CG_DIGIT = pynini.union("०", "१", "२", "३", "४", "५", "६", "�
 NEMO_CG_NON_ZERO = pynini.union("१", "२", "३", "४", "५", "६", "७", "८", "९").optimize()
 NEMO_CG_ZERO = "०"
 
+# Superscript characters for powers/exponents
+NEMO_SUPERSCRIPT_DIGIT = pynini.union("⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹").optimize()
+NEMO_SUPERSCRIPT_MINUS = "⁻"
+NEMO_SUPERSCRIPT_PLUS = "⁺"
+
+# Mapping from superscript to regular digits
+superscript_to_digit = pynini.string_map([
+    ("⁰", "0"), ("¹", "1"), ("²", "2"), ("³", "3"), ("⁴", "4"),
+    ("⁵", "5"), ("⁶", "6"), ("⁷", "7"), ("⁸", "8"), ("⁹", "9")
+]).optimize()
+
+superscript_to_sign = pynini.string_map([
+    ("⁻", "-"), ("⁺", "+")
+]).optimize()
+
 NEMO_LOWER = pynini.union(*string.ascii_lowercase).optimize()
 NEMO_UPPER = pynini.union(*string.ascii_uppercase).optimize()
 NEMO_ALPHA = pynini.union(NEMO_LOWER, NEMO_UPPER).optimize()
@@ -165,7 +180,7 @@ class GraphFst:
         Returns:
             Fst: fst
         """
-        return pynutil.insert(f"{self.name} {{ ") + fst + pynutil.insert(" }}")
+        return pynutil.insert(f"{self.name} {{ ") + fst + pynutil.insert(" }")
 
     def delete_tokens(self, fst) -> 'pynini.FstLike':
         """

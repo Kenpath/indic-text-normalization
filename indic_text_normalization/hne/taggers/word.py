@@ -39,7 +39,7 @@ class WordFst(GraphFst):
         super().__init__(name="word", kind="classify", deterministic=deterministic)
 
         # Define Chhattisgarhi characters and symbols using pynini.union
-        HINDI_CHAR = pynini.union(
+        CG_CHAR = pynini.union(
             *[chr(i) for i in range(0x0900, 0x0903 + 1)],  # Chhattisgarhi vowels and consonants
             *[chr(i) for i in range(0x0905, 0x0939 + 1)],  # More Chhattisgarhi characters
             *[chr(i) for i in range(0x093E, 0x094D + 1)],  # Chhattisgarhi diacritics
@@ -50,11 +50,12 @@ class WordFst(GraphFst):
         default_graph = pynini.closure(pynini.difference(NEMO_NOT_SPACE, punct.project("input")), 1)
         symbols_to_exclude = (pynini.union("$", "€", "₩", "£", "¥", "#", "%") | punct).optimize()
 
-        # Use HINDI_CHAR in the graph
-        graph = pynini.closure(pynini.difference(HINDI_CHAR, symbols_to_exclude), 1)
+        # Use CG_CHAR in the graph
+        graph = pynini.closure(pynini.difference(CG_CHAR, symbols_to_exclude), 1)
         graph = pynutil.add_weight(graph, MIN_NEG_WEIGHT) | default_graph
 
-        # Ensure no spaces around punctuation
+        # Ensure no spaces around punctuation - THIS LINE IS CRITICAL!
+        # It allows tokenization to continue after punctuation marks
         graph = pynini.closure(graph + pynini.closure(punct + graph, 0, 1))
 
         self.graph = convert_space(graph)
