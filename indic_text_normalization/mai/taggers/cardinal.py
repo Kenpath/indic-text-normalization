@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,6 +24,16 @@ arabic_to_maithili_digit = pynini.string_map([
     ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
 ]).optimize()
 arabic_to_maithili_number = pynini.closure(arabic_to_maithili_digit).optimize()
+
+# Create a graph that deletes commas from digit sequences
+# This handles Indian number format where commas are separators (e.g., 1,000,001 or 5,67,300)
+any_digit = pynini.union(NEMO_DIGIT, NEMO_MAI_DIGIT)
+# Pattern: digit (comma? digit)* - accepts digits with optional commas, deletes commas
+# This creates a transducer: input (with commas) -> output (without commas)
+delete_commas = (
+    any_digit
+    + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+).optimize()
 
 
 class CardinalFst(GraphFst):
@@ -314,7 +324,7 @@ class CardinalFst(GraphFst):
         # Combine all number patterns efficiently
         # Support both Maithili digits and Arabic digits
         # Maithili digits go directly to final_graph
-        hindi_final_graph = (
+        maithili_final_graph = (
             digit
             | zero
             | teens_and_ties
@@ -338,42 +348,30 @@ class CardinalFst(GraphFst):
             | graph_leading_zero
         ).optimize()
 
+        # Add comma support: compose delete_commas with maithili_final_graph
+        # This allows inputs like "1,000,001" or "१,००,००१" to be processed
+        maithili_with_commas = pynini.compose(delete_commas, maithili_final_graph).optimize()
+        
+        # Give comma-separated numbers higher priority (lower weight)
+        maithili_final_with_commas = pynutil.add_weight(maithili_with_commas, -0.1) | maithili_final_graph
+
         # Arabic digits: convert to Maithili, then apply the same graph
         arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
-        arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_maithili_number @ hindi_final_graph).optimize()
         
-        # Comma verbalization: read commas as "कमा"
-        # Example: 1,234,567 -> "एक कमा दुइ सौ चौंतीस कमा पाँच सौ सड़सठि"
-        comma_word = pynutil.insert(" ") + pynini.cross(",", "कमा") + pynutil.insert(" ")
-        
-        # Graph for comma-separated numbers (both Arabic and Maithili digits)
-        # Pattern: digit_group + (comma + digit_group)+
-        # Each group is 1-3 digits that gets converted to Maithili words
-        digit_group_arabic = pynini.closure(NEMO_DIGIT, 1, 3)
-        digit_group_maithili = pynini.closure(NEMO_MAI_DIGIT, 1, 3)
-        
-        # Convert each group to words
-        group_to_words_arabic = pynini.compose(digit_group_arabic, arabic_to_maithili_number @ hindi_final_graph)
-        group_to_words_maithili = pynini.compose(digit_group_maithili, hindi_final_graph)
-        
-        # Build comma-separated pattern for Arabic digits
-        comma_separated_arabic = (
-            group_to_words_arabic + 
-            pynini.closure(comma_word + group_to_words_arabic, 1)  # At least one comma required
+        # For Arabic digits with commas: delete commas first, then convert and process
+        arabic_with_commas = pynini.compose(
+            delete_commas,
+            arabic_to_maithili_number @ maithili_final_graph
         ).optimize()
         
-        # Build comma-separated pattern for Maithili digits
-        comma_separated_maithili = (
-            group_to_words_maithili + 
-            pynini.closure(comma_word + group_to_words_maithili, 1)  # At least one comma required
-        ).optimize()
+        # Regular Arabic digits without commas
+        arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_maithili_number @ maithili_final_graph).optimize()
         
-        # Combine comma-separated patterns
-        comma_separated_graph = comma_separated_arabic | comma_separated_maithili
+        # Combine: prioritize comma-separated, fallback to regular
+        arabic_final_with_commas = pynutil.add_weight(arabic_with_commas, -0.1) | arabic_final_graph
 
-        # Combine both Maithili and Arabic digit paths
-        # Priority: comma-separated numbers first (higher priority), then regular numbers
-        final_graph = pynutil.add_weight(comma_separated_graph, 0.9) | hindi_final_graph | arabic_final_graph
+        # Combine both Maithili and Arabic digit paths (both with comma support)
+        final_graph = maithili_final_with_commas | arabic_final_with_commas
 
         optional_minus_graph = pynini.closure(pynutil.insert("negative: ") + pynini.cross("-", "\"true\" "), 0, 1)
 

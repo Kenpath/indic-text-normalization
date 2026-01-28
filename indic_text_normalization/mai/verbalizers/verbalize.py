@@ -1,4 +1,4 @@
-﻿# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
+# Copyright (c) 2024, NVIDIA CORPORATION.  All rights reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ from indic_text_normalization.mai.verbalizers.math import MathFst
 from indic_text_normalization.mai.verbalizers.measure import MeasureFst
 from indic_text_normalization.mai.verbalizers.money import MoneyFst
 from indic_text_normalization.mai.verbalizers.ordinal import OrdinalFst
+from indic_text_normalization.mai.verbalizers.power import PowerFst
+from indic_text_normalization.mai.verbalizers.scientific import ScientificFst
 from indic_text_normalization.mai.verbalizers.telephone import TelephoneFst
 from indic_text_normalization.mai.verbalizers.time import TimeFst
 from indic_text_normalization.mai.verbalizers.whitelist import WhiteListFst
@@ -69,6 +71,12 @@ class VerbalizeFst(GraphFst):
         math = MathFst(deterministic=deterministic)
         math_graph = math.fst
 
+        power = PowerFst(deterministic=deterministic)
+        power_graph = power.fst
+
+        scientific = ScientificFst(deterministic=deterministic)
+        scientific_graph = scientific.fst
+
         whitelist_graph = WhiteListFst(deterministic=deterministic).fst
 
         graph = (
@@ -81,6 +89,8 @@ class VerbalizeFst(GraphFst):
             | money_graph
             | ordinal_graph
             | math_graph
+            | power_graph
+            | scientific_graph
             | whitelist_graph
             | telephone_graph
         )
