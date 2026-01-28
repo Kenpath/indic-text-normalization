@@ -19,7 +19,12 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.mag.graph_utils import (
+    NEMO_ALPHA,
+    NEMO_DIGIT,
+    NEMO_MAG_DIGIT,
+    NEMO_NOT_SPACE,
     NEMO_SPACE,
+    NEMO_SIGMA,
     NEMO_WHITE_SPACE,
     GraphFst,
     delete_extra_space,
@@ -37,6 +42,8 @@ from indic_text_normalization.mag.taggers.telephone import TelephoneFst
 from indic_text_normalization.mag.taggers.time import TimeFst
 from indic_text_normalization.mag.taggers.whitelist import WhiteListFst
 from indic_text_normalization.mag.taggers.word import WordFst
+from indic_text_normalization.mag.taggers.power import PowerFst
+from indic_text_normalization.mag.taggers.scientific import ScientificFst
 
 
 class ClassifyFst(GraphFst):
@@ -101,6 +108,12 @@ class ClassifyFst(GraphFst):
             math = MathFst(cardinal=cardinal, deterministic=deterministic)
             math_graph = math.fst
 
+            power = PowerFst(cardinal=cardinal, deterministic=deterministic)
+            power_graph = power.fst
+
+            scientific = ScientificFst(cardinal=cardinal, deterministic=deterministic)
+            scientific_graph = scientific.fst
+
             date = DateFst(cardinal=cardinal)
             date_graph = date.fst
 
@@ -122,6 +135,8 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(telephone_graph, 0.9)  # HIGHEST priority for telephone (before cardinal/math)
                 | pynutil.add_weight(time_graph, 1.05)  # Higher priority for times
                 | pynutil.add_weight(date_graph, 1.05)  # Higher priority for dates
+                | pynutil.add_weight(scientific_graph, 1.04)  # Prefer scientific notation
+                | pynutil.add_weight(power_graph, 1.045)  # Prefer superscripts like 10⁻⁷
                 | pynutil.add_weight(measure_graph, 1.05)  # Higher priority for measures
                 | pynutil.add_weight(cardinal_graph, 1.1)
                 | pynutil.add_weight(decimal_graph, 1.1)
@@ -161,7 +176,34 @@ class ClassifyFst(GraphFst):
             graph = delete_space + graph + delete_space
             graph = pynini.union(graph, punct)
 
-            self.fst = graph.optimize()
+            # Tokenization rewrites to keep Magahi easily fixable and aligned with Hindi-style behavior:
+            # - Joiner hyphens between digits and Devanagari letters -> space
+            # - Glue-equals patterns like "π=3.14" -> "π = 3.14" (so "=" can be whitelisted to "बराबर")
+            # - Space after em-dash when followed by a number (so decimals match)
+            # - Insert space between math symbols (√, ∑, ...) and following digits/letters ("√2" -> "√ 2")
+            dev_block = pynini.union(*[chr(i) for i in range(0x0900, 0x0980)]).optimize()
+            digit_any = pynini.union(NEMO_DIGIT, NEMO_MAG_DIGIT).optimize()
+
+            joiner_hyphen_to_space = pynini.cdrewrite(pynini.cross("-", " "), digit_any, dev_block, NEMO_SIGMA)
+
+            non_digit_left = pynini.difference(NEMO_NOT_SPACE, digit_any).optimize()
+            equals_to_spaced = pynini.cdrewrite(pynini.cross("=", " = "), non_digit_left, digit_any, NEMO_SIGMA)
+
+            emdash_to_spaced = pynini.cdrewrite(pynini.cross("—", "— "), "", digit_any, NEMO_SIGMA)
+            emdash_joiner_to_space = pynini.cdrewrite(pynini.cross("—", " "), digit_any, dev_block, NEMO_SIGMA)
+
+            math_symbols = pynini.union("√", "∑", "∏", "∫", "∬", "∭", "∮", "∂", "∇").optimize()
+            following_char = pynini.union(digit_any, NEMO_ALPHA).optimize()
+            math_symbol_to_spaced = pynini.cdrewrite(pynutil.insert(" "), math_symbols, following_char, NEMO_SIGMA)
+
+            self.fst = (
+                math_symbol_to_spaced
+                @ emdash_joiner_to_space
+                @ emdash_to_spaced
+                @ equals_to_spaced
+                @ joiner_hyphen_to_space
+                @ graph
+            ).optimize()
 
             if far_file:
                 generator_main(far_file, {"tokenize_and_classify": self.fst})

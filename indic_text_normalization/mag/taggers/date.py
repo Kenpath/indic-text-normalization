@@ -155,13 +155,14 @@ class DateFst(GraphFst):
 
         graph_year_suffix = era_graph
 
+        # Restrict range patterns to year-like values only (avoid stealing generic numeric "10-2" math patterns).
         graph_range = (
             pynutil.insert("era: \"")
-            + cardinal_graph
+            + graph_year
             + insert_space
             + range_graph
             + insert_space
-            + cardinal_graph
+            + graph_year
             + pynutil.insert("\"")
             + pynutil.insert(" preserve_order: true ")
         )

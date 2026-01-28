@@ -18,6 +18,12 @@ arabic_to_magadhi_digit = pynini.string_map([
 ]).optimize()
 arabic_to_magadhi_number = pynini.closure(arabic_to_magadhi_digit).optimize()
 
+# Create a graph that deletes commas from digit sequences (supports both Magadhi and Arabic digits).
+any_digit = pynini.union(NEMO_DIGIT, NEMO_MAG_DIGIT)
+delete_commas = (
+    any_digit + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+).optimize()
+
 
 def get_quantity(decimal: 'pynini.FstLike', cardinal_up_to_hundred: 'pynini.FstLike') -> 'pynini.FstLike':
     """
@@ -87,6 +93,10 @@ class DecimalFst(GraphFst):
         # Magadhi digits input for integer part
         magadhi_integer_input = pynini.closure(NEMO_MAG_DIGIT, 1)
         magadhi_integer_graph = pynini.compose(magadhi_integer_input, cardinal_graph).optimize()
+
+        # Magadhi digits with commas (e.g., १,००,००१)
+        magadhi_integer_with_commas = pynini.compose(delete_commas, cardinal_graph).optimize()
+        magadhi_integer_combined = pynutil.add_weight(magadhi_integer_with_commas, -0.1) | magadhi_integer_graph
         
         # Arabic digits input for integer part
         arabic_integer_input = pynini.closure(NEMO_DIGIT, 1)
@@ -94,9 +104,15 @@ class DecimalFst(GraphFst):
             arabic_integer_input,
             arabic_to_magadhi_number @ cardinal_graph
         ).optimize()
+
+        # Arabic digits with commas (e.g., 1,000,001)
+        arabic_integer_with_commas = pynini.compose(
+            delete_commas, arabic_to_magadhi_number @ cardinal_graph
+        ).optimize()
+        arabic_integer_combined = pynutil.add_weight(arabic_integer_with_commas, -0.1) | arabic_integer_graph
         
         # Combined integer graph (supports both Magadhi and Arabic digits)
-        integer_graph = magadhi_integer_graph | arabic_integer_graph
+        integer_graph = magadhi_integer_combined | arabic_integer_combined
 
         self.graph_fractional = pynutil.insert("fractional_part: \"") + self.graph + pynutil.insert("\"")
         self.graph_integer = pynutil.insert("integer_part: \"") + integer_graph + pynutil.insert("\"")

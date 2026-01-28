@@ -36,7 +36,7 @@ class MathFst(GraphFst):
             pynutil.delete("left:")
             + delete_space
             + pynutil.delete("\"")
-            + pynini.closure(NEMO_NOT_QUOTE, 1)
+            + pynini.closure(NEMO_NOT_QUOTE, 0)  # allow empty (operator_number / standalone)
             + pynutil.delete("\"")
         )
 
@@ -54,6 +54,25 @@ class MathFst(GraphFst):
             + pynutil.delete("right:")
             + delete_space
             + pynutil.delete("\"")
+            + pynini.closure(NEMO_NOT_QUOTE, 0)  # allow empty (number_operator / standalone)
+            + pynutil.delete("\"")
+        )
+
+        # Extended expressions (needed for tight patterns like "10-2=8")
+        middle = (
+            delete_space
+            + pynutil.delete("middle:")
+            + delete_space
+            + pynutil.delete("\"")
+            + pynini.closure(NEMO_NOT_QUOTE, 1)
+            + pynutil.delete("\"")
+        )
+
+        operator_two = (
+            delete_space
+            + pynutil.delete("operator_two:")
+            + delete_space
+            + pynutil.delete("\"")
             + pynini.closure(NEMO_NOT_QUOTE, 1)
             + pynutil.delete("\"")
         )
@@ -61,7 +80,35 @@ class MathFst(GraphFst):
         # Simple expression: left operator right
         simple_expression = left + insert_space + operator + insert_space + right
 
-        graph = simple_expression
+        # Extended expression: left operator middle operator_two right
+        extended_expression = (
+            left
+            + insert_space
+            + operator
+            + insert_space
+            + middle
+            + insert_space
+            + operator_two
+            + insert_space
+            + right
+        )
+
+        # Operator with number (e.g., "+5" -> "प्लस पांच")
+        operator_number_expression = operator + insert_space + right
+
+        # Number with operator (e.g., "5*" -> "पांच गुणा")
+        number_operator_expression = left + insert_space + operator
+
+        # Standalone operator (e.g., "+")
+        standalone_operator_expression = operator
+
+        graph = (
+            simple_expression
+            | extended_expression
+            | operator_number_expression
+            | number_operator_expression
+            | standalone_operator_expression
+        )
         delete_tokens = self.delete_tokens(graph)
         self.fst = delete_tokens.optimize()
 

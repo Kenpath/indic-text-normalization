@@ -68,18 +68,23 @@ class MathFst(GraphFst):
         # Combined number graph
         number_graph = magadhi_number_graph | arabic_number_graph
 
+        # Operands supported by math expressions
+        operand_graph = number_graph
+
         # Optional space around operators
         optional_space = pynini.closure(NEMO_SPACE, 0, 1)
         delimiter = optional_space | pynutil.insert(" ")
 
         # Operators that can appear between numbers
         # Exclude : and / to avoid conflicts with time and dates
-        operators = pynini.union("+", "-", "*", "=", "&", "^", "%", "$", "#", "@", "!", "<", ">", ",", "(", ")")
+        # IMPORTANT: do NOT include comma here, otherwise comma-separated numbers like "1,234,567"
+        # get misclassified as math expressions.
+        operators = pynini.union("+", "-", "*", "=", "&", "^", "%", "$", "#", "@", "!", "<", ">", "(", ")")
         
-        # Math expression: number operator number
+        # Math expression: operand operator operand
         math_expression = (
             pynutil.insert("left: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("operator: \"")
@@ -87,11 +92,56 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("right: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
         )
 
-        final_graph = math_expression
+        # Special-case: tight minus patterns (match without spaces).
+        tight = pynutil.insert("")  # no space
+
+        # Pattern: "10-2=8" -> treat tight "-" as "से" (from) and "=" as "बराबर"
+        math_expression_tight_minus_equals = (
+            pynutil.insert("left: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "से")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("middle: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator_two: \"")
+            + pynini.cross("=", "बराबर")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("right: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+        )
+
+        # Pattern: "10-2 <text>" -> treat tight "-" as "से" for just the pair.
+        math_expression_tight_minus_text = (
+            pynutil.insert("left: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "से")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("right: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+        )
+
+        final_graph = (
+            pynutil.add_weight(math_expression_tight_minus_equals, -0.2)
+            | pynutil.add_weight(math_expression_tight_minus_text, -0.15)
+            | math_expression
+        )
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph.optimize()
 
