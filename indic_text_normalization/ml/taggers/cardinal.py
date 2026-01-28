@@ -354,6 +354,19 @@ class CardinalFst(GraphFst):
         arabic_digit_input_short = pynini.closure(NEMO_DIGIT, 1, 6)  # 1-6 digits only
         arabic_final_graph = pynini.compose(arabic_digit_input_short, arabic_to_malayalam_number @ malayalam_final_graph).optimize()
 
+        # 7+ consecutive digits (no commas): read digit-by-digit (avoid treating as a large grouped number).
+        # This is a common pattern across languages to handle long unformatted digit strings / IDs.
+        digit_word_graph = (digit | zero).optimize()
+        digit_sequence_graph = (digit_word_graph + pynini.closure(insert_space + digit_word_graph)).optimize()
+
+        malayalam_digit_input_long = pynini.closure(NEMO_MA_DIGIT, 7, 25)
+        malayalam_long_digit_graph = pynini.compose(malayalam_digit_input_long, digit_sequence_graph).optimize()
+
+        arabic_digit_input_long = pynini.closure(NEMO_DIGIT, 7, 25)
+        arabic_long_digit_graph = pynini.compose(
+            arabic_digit_input_long, arabic_to_malayalam_number @ digit_sequence_graph
+        ).optimize()
+
         # Handle comma-separated numbers (e.g., 1,234,567)
         # These can be any length because commas indicate it's NOT a phone number
         # Delete commas and then verbalize as a complete number
@@ -400,23 +413,11 @@ class CardinalFst(GraphFst):
         final_graph = (
             pynutil.add_weight(arabic_with_commas, -0.1)
             | pynutil.add_weight(malayalam_with_commas, -0.1)
+            | pynutil.add_weight(arabic_long_digit_graph, -0.05)
+            | pynutil.add_weight(malayalam_long_digit_graph, -0.05)
             | malayalam_cardinal_graph
             | arabic_final_graph
         )
-
-        # CRITICAL: Exclude 7+ consecutive digit sequences (Malayalam or Arabic)
-        # These should be handled by telephone tagger (digit-by-digit)
-        # Pattern: 7 or more consecutive digits (no commas, no other characters)
-        seven_plus_arabic = pynini.closure(NEMO_DIGIT, 7)
-        seven_plus_malayalam = pynini.closure(NEMO_MA_DIGIT, 7)
-        seven_plus_digits = seven_plus_arabic | seven_plus_malayalam
-        
-        # Exclude these patterns from final_graph
-        # This ensures telephone tagger (weight 0.9) can match them
-        final_graph = pynini.difference(
-            pynini.closure(pynini.union(NEMO_DIGIT, NEMO_MA_DIGIT, pynini.accep(",")), 1),
-            seven_plus_digits
-        ) @ final_graph
 
         # Minus sign handling: For both Malayalam and Arabic numbers
         optional_minus_graph = pynini.closure(pynutil.insert("negative: ") + pynini.cross("-", "\"true\" "), 0, 1)

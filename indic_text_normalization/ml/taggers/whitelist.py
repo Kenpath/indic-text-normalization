@@ -17,6 +17,7 @@ from pynini.lib import pynutil
 
 from indic_text_normalization.ml.graph_utils import (
     INPUT_LOWER_CASED,
+    NEMO_SIGMA,
     NEMO_UPPER,
     GraphFst,
     convert_space,
@@ -49,7 +50,7 @@ class WhiteListFst(GraphFst):
         
         # Load symbols (like English implementation)
         graph |= pynini.compose(
-            pynini.difference(pynini.union(pynini.accep(" "), pynini.accep("")), pynini.accep("/")).optimize(),
+            pynini.difference(NEMO_SIGMA, pynini.accep("/")).optimize(),
             _get_whitelist_graph(input_case, get_abs_path("data/whitelist/symbol.tsv")),
         ).optimize()
 

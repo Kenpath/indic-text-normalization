@@ -378,44 +378,11 @@ class MeasureFst(GraphFst):
                 pynutil.insert("fraction { ") + fraction.graph + delete_space + pynutil.insert(" } ") + unit_plural
             )
         
-        # Math operations support (like English)
-        # Note: Malayalam has math_operations.tsv in data/ folder (not data/measure/)
-        math_operations_path = get_abs_path("data/math_operations.tsv")
-        math = None
-        try:
-            if os.path.exists(math_operations_path):
-                math_operations = pynini.string_file(math_operations_path)
-                delimiter = pynini.accep(" ") | pynutil.insert(" ")
-                
-                math_expr = (
-                    (cardinal_graph | NEMO_ALPHA)
-                    + delimiter
-                    + math_operations
-                    + (delimiter | NEMO_ALPHA)
-                    + cardinal_graph
-                    + delimiter
-                    + pynini.cross("=", "തുല്യം")
-                    + delimiter
-                    + (cardinal_graph | NEMO_ALPHA)
-                )
-                
-                math_expr |= (
-                    (cardinal_graph | NEMO_ALPHA)
-                    + delimiter
-                    + pynini.cross("=", "തുല്യം")
-                    + delimiter
-                    + (cardinal_graph | NEMO_ALPHA)
-                    + delimiter
-                    + math_operations
-                    + delimiter
-                    + cardinal_graph
-                )
-                
-                math = (
-                    pynutil.insert('units: "math" cardinal { integer: "') + math_expr + pynutil.insert('" } preserve_order: true')
-                )
-        except Exception:
-            math = None
+        # NOTE:
+        # Earlier versions attempted to classify math expressions inside `measure` as `units: "math" ...`.
+        # This produces measure tokens that do not match the measure verbalizer (units ordering + preserve_order),
+        # and it also steals valid math inputs like "10 - 7 = 3". We intentionally do NOT handle math here;
+        # Malayalam math expressions should be handled by `ml/taggers/math.py`.
         
         # Build final graph
         graph = (
@@ -440,9 +407,6 @@ class MeasureFst(GraphFst):
             graph |= alpha_dash_decimal
         if subgraph_fraction is not None:
             graph |= subgraph_fraction
-        if math is not None:
-            graph |= math
-        
         self.graph = graph.optimize()
 
         final_graph = self.add_tokens(graph)

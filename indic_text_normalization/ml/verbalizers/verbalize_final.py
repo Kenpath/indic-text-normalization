@@ -23,6 +23,7 @@ from indic_text_normalization.ml.graph_utils import (
     delete_extra_space,
     delete_space,
     generator_main,
+    NEMO_SIGMA,
 )
 from indic_text_normalization.ml.verbalizers.verbalize import VerbalizeFst
 from indic_text_normalization.ml.verbalizers.word import WordFst
@@ -70,7 +71,11 @@ class VerbalizeFinalFst(GraphFst):
 
             graph = delete_space + pynini.closure(graph + delete_extra_space) + graph + delete_space
 
-            self.fst = graph.optimize()
+            # Remove spaces before punctuation tokens (common: ",", ".", ")", "!", "?", ":", ";")
+            punct = pynini.union(",", ".", ")", "!", "?", ":", ";").optimize()
+            remove_space_before_punct = pynini.cdrewrite(pynini.cross(" ", ""), "", punct, NEMO_SIGMA)
+
+            self.fst = (graph @ remove_space_before_punct).optimize()
             if far_file:
                 generator_main(far_file, {"verbalize": self.fst})
                 logging.info(f"VerbalizeFinalFst grammars are saved to {far_file}.")

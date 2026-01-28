@@ -32,6 +32,28 @@ NEMO_HI_DIGIT = pynini.union("൦", "൧", "൨", "൩", "൪", "൫", "൬", "�
 NEMO_HI_NON_ZERO = pynini.union("൧", "൨", "൩", "൪", "൫", "൬", "൭", "൮", "൯").optimize()
 NEMO_HI_ZERO = "൦"
 
+# Superscript characters for powers/exponents
+NEMO_SUPERSCRIPT_DIGIT = pynini.union("⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹").optimize()
+NEMO_SUPERSCRIPT_MINUS = "⁻"
+NEMO_SUPERSCRIPT_PLUS = "⁺"
+
+superscript_to_digit = pynini.string_map(
+    [
+        ("⁰", "0"),
+        ("¹", "1"),
+        ("²", "2"),
+        ("³", "3"),
+        ("⁴", "4"),
+        ("⁵", "5"),
+        ("⁶", "6"),
+        ("⁷", "7"),
+        ("⁸", "8"),
+        ("⁹", "9"),
+    ]
+).optimize()
+
+superscript_to_sign = pynini.string_map([("⁻", "-"), ("⁺", "+")]).optimize()
+
 ML_ONNARA = "ഒന്നര"  # 1.5
 ML_IRANDARA = "രണ്ടര"  # 2.5
 ML_KAAL_ADHIKAM = "കാൽ അധികം"  # quarter more (X.25)

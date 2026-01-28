@@ -44,6 +44,8 @@ from indic_text_normalization.ml.taggers.telephone import TelephoneFst
 from indic_text_normalization.ml.taggers.time import TimeFst
 from indic_text_normalization.ml.taggers.whitelist import WhiteListFst
 from indic_text_normalization.ml.taggers.word import WordFst
+from indic_text_normalization.ml.taggers.power import PowerFst
+from indic_text_normalization.ml.taggers.scientific import ScientificFst
 from indic_text_normalization.ml.verbalizers.date import DateFst as vDateFst
 from indic_text_normalization.ml.verbalizers.ordinal import OrdinalFst as vOrdinalFst
 from indic_text_normalization.ml.verbalizers.time import TimeFst as vTimeFst
@@ -135,6 +137,16 @@ class ClassifyFst(GraphFst):
             logging.debug(f"math: {time.time() - start_time:.2f}s -- {math_graph.num_states()} nodes")
 
             start_time = time.time()
+            scientific = ScientificFst(cardinal=cardinal, deterministic=deterministic)
+            scientific_graph = scientific.fst
+            logging.debug(f"scientific: {time.time() - start_time:.2f}s -- {scientific_graph.num_states()} nodes")
+
+            start_time = time.time()
+            power = PowerFst(cardinal=cardinal, deterministic=deterministic)
+            power_graph = power.fst
+            logging.debug(f"power: {time.time() - start_time:.2f}s -- {power_graph.num_states()} nodes")
+
+            start_time = time.time()
             whitelist = WhiteListFst(
                 input_case=input_case, deterministic=deterministic, input_file=whitelist
             )
@@ -201,6 +213,8 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(ordinal_graph, 1.1)
                 | pynutil.add_weight(money_graph, 1.1)
                 | pynutil.add_weight(telephone_graph, 0.9)  # Higher priority than cardinal (lower weight = higher priority)
+                | pynutil.add_weight(scientific_graph, 1.05)  # Prefer scientific notation over electronic
+                | pynutil.add_weight(power_graph, 1.06)  # Prefer superscripts like 10⁻⁷
                 | pynutil.add_weight(electronic_graph, 1.11)
                 | pynutil.add_weight(fraction_graph, 1.1)
                 | pynutil.add_weight(math_graph, 1.1)
@@ -249,8 +263,43 @@ class ClassifyFst(GraphFst):
             graph = delete_space + graph + delete_space
             graph = pynini.union(graph, punct)
 
+            # Tokenization rewrites to keep behavior consistent across languages:
+            # - separate glued '=' patterns like "π=3.14" -> "π = 3.14"
+            # - turn joiner hyphens between digits and Malayalam letters into spaces
+            # - insert space after em-dash before digits so decimals match
+            # - insert space after math symbols like "√" when followed by digit/letter ("√2" -> "√ 2")
+            from indic_text_normalization.ml.graph_utils import (
+                NEMO_ALPHA,
+                NEMO_DIGIT,
+                NEMO_HI_DIGIT,
+                NEMO_NOT_SPACE,
+                NEMO_SIGMA,
+            )
+
+            ml_block = pynini.union(*[chr(i) for i in range(0x0D00, 0x0D80)]).optimize()
+            digit_any = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT).optimize()
+
+            joiner_hyphen_to_space = pynini.cdrewrite(pynini.cross("-", " "), digit_any, ml_block, NEMO_SIGMA)
+
+            non_digit_left = pynini.difference(NEMO_NOT_SPACE, digit_any).optimize()
+            equals_to_spaced = pynini.cdrewrite(pynini.cross("=", " = "), non_digit_left, digit_any, NEMO_SIGMA)
+
+            emdash_to_spaced = pynini.cdrewrite(pynini.cross("—", "— "), "", digit_any, NEMO_SIGMA)
+            emdash_joiner_to_space = pynini.cdrewrite(pynini.cross("—", " "), digit_any, ml_block, NEMO_SIGMA)
+
+            math_symbols = pynini.union("√", "∑", "∏", "∫", "∬", "∭", "∮", "∂", "∇").optimize()
+            following_char = pynini.union(digit_any, NEMO_ALPHA).optimize()
+            math_symbol_to_spaced = pynini.cdrewrite(pynutil.insert(" "), math_symbols, following_char, NEMO_SIGMA)
+
             start_time = time.time()
-            self.fst = graph.optimize()
+            self.fst = (
+                math_symbol_to_spaced
+                @ emdash_joiner_to_space
+                @ emdash_to_spaced
+                @ equals_to_spaced
+                @ joiner_hyphen_to_space
+                @ graph
+            ).optimize()
             logging.debug(f"final graph optimization: {time.time() - start_time:.2f}s -- {self.fst.num_states()} nodes")
 
             if far_file:

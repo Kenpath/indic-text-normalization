@@ -318,9 +318,20 @@ class CardinalFst(GraphFst):
         graph_leading_zero = zero + insert_space + single_digit
         graph_leading_zero = pynutil.add_weight(graph_leading_zero, 0.5)
 
-        # Combine all number patterns efficiently
-        # Support both Magadhi digits and Arabic digits
-        # Magadhi digits go directly to final_graph
+        # 7+ consecutive digits (no commas): read digit-by-digit (common for IDs, long sequences).
+        digit_word_graph = (digit | zero).optimize()
+        digit_sequence_graph = (digit_word_graph + pynini.closure(insert_space + digit_word_graph)).optimize()
+
+        magadhi_digit_input_long = pynini.closure(NEMO_MAG_DIGIT, 7, 25)
+        magadhi_long_digit_graph = pynini.compose(magadhi_digit_input_long, digit_sequence_graph).optimize()
+
+        arabic_digit_input_long = pynini.closure(NEMO_DIGIT, 7, 25)
+        arabic_long_digit_graph = pynini.compose(
+            arabic_digit_input_long, arabic_to_magadhi_number @ digit_sequence_graph
+        ).optimize()
+
+        # Combine all number patterns efficiently (support both Magadhi and Arabic digits).
+        # Magadhi digits (< 7 consecutive) go to final_graph for grouped verbalization.
         magadhi_final_graph = (
             digit
             | zero
@@ -347,25 +358,37 @@ class CardinalFst(GraphFst):
 
         # Add comma support: allow comma-separated Magadhi digits like "१,००,००१"
         magadhi_with_commas = pynini.compose(delete_commas, magadhi_final_graph).optimize()
-        magadhi_final_with_commas = pynutil.add_weight(magadhi_with_commas, -0.1) | magadhi_final_graph
+
+        # Short Magadhi inputs (1-6 digits)
+        magadhi_digit_input_short = pynini.closure(NEMO_MAG_DIGIT, 1, 6)
+        magadhi_short_graph = pynini.compose(magadhi_digit_input_short, magadhi_final_graph).optimize()
+
+        magadhi_final_combined = (
+            pynutil.add_weight(magadhi_with_commas, -0.1)
+            | pynutil.add_weight(magadhi_long_digit_graph, -0.05)
+            | magadhi_short_graph
+        )
 
         # Arabic digits: convert to Magadhi, then apply the same graph
-        arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
-
         # Arabic digits with commas: delete commas first, then convert/process
         arabic_with_commas = pynini.compose(
             delete_commas, arabic_to_magadhi_number @ magadhi_final_graph
         ).optimize()
 
-        # Regular Arabic digits without commas
-        arabic_final_graph = pynini.compose(
-            arabic_digit_input, arabic_to_magadhi_number @ magadhi_final_graph
+        # Regular Arabic digits without commas (short: 1-6 digits)
+        arabic_digit_input_short = pynini.closure(NEMO_DIGIT, 1, 6)
+        arabic_short_graph = pynini.compose(
+            arabic_digit_input_short, arabic_to_magadhi_number @ magadhi_final_graph
         ).optimize()
 
-        arabic_final_with_commas = pynutil.add_weight(arabic_with_commas, -0.1) | arabic_final_graph
+        arabic_final_combined = (
+            pynutil.add_weight(arabic_with_commas, -0.1)
+            | pynutil.add_weight(arabic_long_digit_graph, -0.05)
+            | arabic_short_graph
+        )
 
         # Combine both Magadhi and Arabic digit paths
-        final_graph = magadhi_final_with_commas | arabic_final_with_commas
+        final_graph = magadhi_final_combined | arabic_final_combined
 
         optional_minus_graph = pynini.closure(pynutil.insert("negative: ") + pynini.cross("-", "\"true\" "), 0, 1)
 

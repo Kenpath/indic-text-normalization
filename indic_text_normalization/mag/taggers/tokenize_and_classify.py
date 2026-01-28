@@ -186,6 +186,19 @@ class ClassifyFst(GraphFst):
 
             joiner_hyphen_to_space = pynini.cdrewrite(pynini.cross("-", " "), digit_any, dev_block, NEMO_SIGMA)
 
+            # Also break joiner hyphens between Latin letters and digits:
+            #   "signal-7" -> "signal 7", "7-stage" -> "7 stage"
+            # This lets cardinals normalize the digit, while keeping math like "10-2" untouched.
+            # EXCLUDE scientific notation: "e-5" or "E-5" should stay together
+            e_pattern = pynini.union("e", "E")
+            not_scientific_left = pynini.difference(NEMO_ALPHA, e_pattern).optimize()
+            latin_to_digit_hyphen = pynini.cdrewrite(pynini.cross("-", " "), not_scientific_left, digit_any, NEMO_SIGMA)
+            
+            # For digit-to-latin hyphens, EXCLUDE scientific notation patterns like "-e5" or "-E12"
+            # (we want "10.1-e5" to stay together for the scientific tagger)
+            not_scientific_right = pynini.difference(NEMO_ALPHA, e_pattern).optimize()
+            digit_to_latin_hyphen = pynini.cdrewrite(pynini.cross("-", " "), digit_any, not_scientific_right, NEMO_SIGMA)
+
             non_digit_left = pynini.difference(NEMO_NOT_SPACE, digit_any).optimize()
             equals_to_spaced = pynini.cdrewrite(pynini.cross("=", " = "), non_digit_left, digit_any, NEMO_SIGMA)
 
@@ -201,6 +214,8 @@ class ClassifyFst(GraphFst):
                 @ emdash_joiner_to_space
                 @ emdash_to_spaced
                 @ equals_to_spaced
+                @ digit_to_latin_hyphen
+                @ latin_to_digit_hyphen
                 @ joiner_hyphen_to_space
                 @ graph
             ).optimize()

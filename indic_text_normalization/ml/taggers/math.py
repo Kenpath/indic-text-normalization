@@ -74,7 +74,8 @@ class MathFst(GraphFst):
 
         # Operators that can appear between numbers
         # Exclude : and / to avoid conflicts with time and dates
-        operators = pynini.union("+", "-", "*", "=", "&", "^", "%", "$", "#", "@", "!", "<", ">", ",", "(", ")", "?")
+        # IMPORTANT: do NOT include comma here, otherwise comma punctuation can be misclassified as math.
+        operators = pynini.union("+", "-", "*", "=", "&", "^", "%", "$", "#", "@", "!", "<", ">", "(", ")", "?")
         
         # Math expression: number operator number
         # Pattern: number [space] operator [space] number
@@ -107,7 +108,9 @@ class MathFst(GraphFst):
             + number_graph
             + pynutil.insert("\"")
             + delimiter
-            + pynutil.insert("operator2: \"")
+            # IMPORTANT: token keys must be ASCII letters/underscore only (no digits),
+            # because `TokenParser` rejects keys like "operator2".
+            + pynutil.insert("operator_two: \"")
             + (operators @ math_operations)
             + pynutil.insert("\"")
             + delimiter
@@ -157,7 +160,55 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
         )
 
-        final_graph = math_expression | extended_math | operator_number | number_operator | standalone_operator
+        # Special-case: tight minus patterns (no spaces around "-").
+        # Malayalam typically uses "മുതൽ" for "from" in tight subtraction contexts.
+        tight = pynutil.insert("")  # no space
+
+        tight_minus_equals = (
+            pynutil.insert("left: \"")
+            + number_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "മുതൽ")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("middle: \"")
+            + number_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator_two: \"")
+            + pynini.cross("=", "തുല്യം")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("right: \"")
+            + number_graph
+            + pynutil.insert("\"")
+        )
+
+        tight_minus_pair = (
+            pynutil.insert("left: \"")
+            + number_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "മുതൽ")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("right: \"")
+            + number_graph
+            + pynutil.insert("\"")
+        )
+
+        final_graph = (
+            pynutil.add_weight(tight_minus_equals, -0.2)
+            | pynutil.add_weight(tight_minus_pair, -0.15)
+            | math_expression
+            | extended_math
+            | operator_number
+            | number_operator
+            | standalone_operator
+        )
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph.optimize()
 
