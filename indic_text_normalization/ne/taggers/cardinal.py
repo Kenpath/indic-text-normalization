@@ -15,7 +15,7 @@
 import pynini
 from pynini.lib import pynutil
 
-from indic_text_normalization.ne.graph_utils import GraphFst, NEMO_DIGIT, insert_space
+from indic_text_normalization.ne.graph_utils import GraphFst, NEMO_DIGIT, NEMO_HI_DIGIT, insert_space
 from indic_text_normalization.ne.utils import get_abs_path
 
 # Convert Arabic digits (0-9) to Nepali digits (०-९)
@@ -24,6 +24,16 @@ arabic_to_Nepali_digit = pynini.string_map([
     ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
 ]).optimize()
 arabic_to_Nepali_number = pynini.closure(arabic_to_Nepali_digit).optimize()
+
+# Create a graph that deletes commas from digit sequences
+# This handles Indian number format where commas are separators (e.g., 1,000,001 or 5,67,300)
+any_digit = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT)
+# Pattern: digit (comma? digit)* - accepts digits with optional commas, deletes commas
+# This creates a transducer: input (with commas) -> output (without commas)
+delete_commas = (
+    any_digit
+    + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+).optimize()
 
 
 class CardinalFst(GraphFst):
@@ -338,12 +348,30 @@ class CardinalFst(GraphFst):
             | graph_leading_zero
         ).optimize()
 
+        # Add comma support: compose delete_commas with Nepali_final_graph
+        # This allows inputs like "1,000,001" or "१,००,००१" to be processed
+        nepali_with_commas = pynini.compose(delete_commas, Nepali_final_graph).optimize()
+        
+        # Give comma-separated numbers higher priority (lower weight)
+        nepali_final_with_commas = pynutil.add_weight(nepali_with_commas, -0.1) | Nepali_final_graph
+
         # Arabic digits: convert to Nepali, then apply the same graph
         arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
+        
+        # For Arabic digits with commas: delete commas first, then convert and process
+        arabic_with_commas = pynini.compose(
+            delete_commas,
+            arabic_to_Nepali_number @ Nepali_final_graph
+        ).optimize()
+        
+        # Regular Arabic digits without commas
         arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_Nepali_number @ Nepali_final_graph).optimize()
+        
+        # Combine: prioritize comma-separated, fallback to regular
+        arabic_final_with_commas = pynutil.add_weight(arabic_with_commas, -0.1) | arabic_final_graph
 
-        # Combine both Nepali and Arabic digit paths
-        final_graph = Nepali_final_graph | arabic_final_graph
+        # Combine both Nepali and Arabic digit paths (both with comma support)
+        final_graph = nepali_final_with_commas | arabic_final_with_commas
 
         optional_minus_graph = pynini.closure(pynutil.insert("negative: ") + pynini.cross("-", "\"true\" "), 0, 1)
 

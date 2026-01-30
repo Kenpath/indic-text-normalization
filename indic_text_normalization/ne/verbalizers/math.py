@@ -68,9 +68,10 @@ class MathFst(GraphFst):
             + pynutil.delete("\"")
         )
 
-        operator2 = (
+        # Handle operator_two (same as Hindi) for extended expressions
+        operator_two = (
             delete_space
-            + pynutil.delete("operator2:")
+            + pynutil.delete("operator_two:")
             + delete_space
             + pynutil.delete("\"")
             + pynini.closure(NEMO_NOT_QUOTE, 1)
@@ -82,9 +83,9 @@ class MathFst(GraphFst):
             left + insert_space + operator + insert_space + right
         )
 
-        # Extended expression: left operator middle operator2 right
+        # Extended expression: left operator middle operator_two right (same as Hindi)
         extended_expression = (
-            left + insert_space + operator + insert_space + middle + insert_space + operator2 + insert_space + right
+            left + insert_space + operator + insert_space + middle + insert_space + operator_two + insert_space + right
         )
 
         # Operator with number (e.g., "+5" -> "प्लस पांच")
@@ -98,11 +99,12 @@ class MathFst(GraphFst):
         # This matches when left="" and right="", so we just output operator
         standalone_operator_expression = operator
 
+        # Same order as Hindi: extended first (more fields), then simple, etc.
         graph = (
-            simple_expression 
-            | extended_expression 
-            | operator_number_expression 
-            | number_operator_expression 
+            simple_expression
+            | extended_expression
+            | operator_number_expression
+            | number_operator_expression
             | standalone_operator_expression
         )
         delete_tokens = self.delete_tokens(graph)

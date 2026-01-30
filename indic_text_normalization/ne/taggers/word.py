@@ -48,7 +48,14 @@ class WordFst(GraphFst):
         # Include punctuation in the graph
         punct = punctuation.graph
         default_graph = pynini.closure(pynini.difference(NEMO_NOT_SPACE, punct.project("input")), 1)
-        symbols_to_exclude = (pynini.union("$", "€", "₩", "£", "¥", "#", "%") | punct).optimize()
+        
+        # Greek letters - exclude from word to allow whitelist to handle them
+        GREEK_LETTERS = pynini.union(
+            "α", "β", "γ", "δ", "ε", "ζ", "η", "θ", "ι", "κ", "λ", "μ",
+            "ν", "ξ", "ο", "π", "ρ", "σ", "τ", "υ", "φ", "χ", "ψ", "ω"
+        ).optimize()
+        
+        symbols_to_exclude = (pynini.union("$", "€", "₩", "£", "¥", "#", "%") | punct | GREEK_LETTERS).optimize()
 
         # Use HINDI_CHAR in the graph
         graph = pynini.closure(pynini.difference(HINDI_CHAR, symbols_to_exclude), 1)
