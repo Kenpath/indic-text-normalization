@@ -44,6 +44,7 @@ from indic_text_normalization.sa.taggers.telephone import TelephoneFst
 from indic_text_normalization.sa.taggers.time import TimeFst
 from indic_text_normalization.sa.taggers.whitelist import WhiteListFst
 from indic_text_normalization.sa.taggers.word import WordFst
+from indic_text_normalization.sa.taggers.scientific import ScientificFst
 from indic_text_normalization.sa.verbalizers.date import DateFst as vDateFst
 from indic_text_normalization.sa.verbalizers.ordinal import OrdinalFst as vOrdinalFst
 from indic_text_normalization.sa.verbalizers.time import TimeFst as vTimeFst
@@ -132,7 +133,13 @@ class ClassifyFst(GraphFst):
             from indic_text_normalization.sa.taggers.math import MathFst
             math = MathFst(cardinal=cardinal, deterministic=deterministic)
             math_graph = math.fst
+            math_graph = math.fst
             logging.debug(f"math: {time.time() - start_time:.2f}s -- {math_graph.num_states()} nodes")
+
+            start_time = time.time()
+            scientific = ScientificFst(cardinal=cardinal, deterministic=deterministic)
+            scientific_graph = scientific.fst
+            logging.debug(f"scientific: {time.time() - start_time:.2f}s -- {scientific_graph.num_states()} nodes")
 
             start_time = time.time()
             whitelist = WhiteListFst(
@@ -203,7 +210,9 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(telephone_graph, 0.9)  # Higher priority than cardinal (lower weight = higher priority)
                 | pynutil.add_weight(electronic_graph, 1.11)
                 | pynutil.add_weight(fraction_graph, 1.1)
+                | pynutil.add_weight(fraction_graph, 1.1)
                 | pynutil.add_weight(math_graph, 1.1)
+                | pynutil.add_weight(scientific_graph, 1.05)  # High priority
                 | pynutil.add_weight(range_graph, 1.1)
                 | pynutil.add_weight(serial_graph, 1.12)  # should be higher than the rest of the classes
                 | pynutil.add_weight(graph_range_money, 1.1)

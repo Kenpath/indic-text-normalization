@@ -17,6 +17,7 @@ from pynini.lib import pynutil
 
 from indic_text_normalization.sa.graph_utils import (
     MIN_NEG_WEIGHT,
+    NEMO_DIGIT,
     NEMO_NOT_SPACE,
     GraphFst,
     convert_space,
@@ -47,7 +48,9 @@ class WordFst(GraphFst):
 
         # Include punctuation in the graph
         punct = punctuation.graph
-        default_graph = pynini.closure(pynini.difference(NEMO_NOT_SPACE, punct.project("input")), 1)
+        default_graph = pynini.closure(
+            pynini.difference(NEMO_NOT_SPACE, punct.project("input") | NEMO_DIGIT), 1
+        )
         symbols_to_exclude = (pynini.union("$", "€", "₩", "£", "¥", "#", "%") | punct).optimize()
 
         # Use HINDI_CHAR in the graph

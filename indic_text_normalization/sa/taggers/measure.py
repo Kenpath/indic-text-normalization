@@ -440,8 +440,8 @@ class MeasureFst(GraphFst):
             graph |= alpha_dash_decimal
         if subgraph_fraction is not None:
             graph |= subgraph_fraction
-        if math is not None:
-            graph |= math
+        # if math is not None:
+        #     graph |= math
         
         self.graph = graph.optimize()
 

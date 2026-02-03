@@ -68,9 +68,9 @@ class MathFst(GraphFst):
             + pynutil.delete("\"")
         )
 
-        operator2 = (
+        operator_two = (
             delete_space
-            + pynutil.delete("operator2:")
+            + pynutil.delete("operator_two:")
             + delete_space
             + pynutil.delete("\"")
             + pynini.closure(NEMO_NOT_QUOTE, 1)
@@ -84,26 +84,26 @@ class MathFst(GraphFst):
 
         # Extended expression: left operator middle operator2 right
         extended_expression = (
-            left + insert_space + operator + insert_space + middle + insert_space + operator2 + insert_space + right
+            left + insert_space + operator + insert_space + middle + insert_space + operator_two + insert_space + right
         )
 
         # Operator with number (e.g., "+5" -> "प्लस पांच")
-        operator_number_expression = operator + insert_space + right
+        operator_number_expression = left + operator + insert_space + right
 
         # Number with operator (e.g., "5*" -> "पांच गुणा")
-        number_operator_expression = left + insert_space + operator
+        number_operator_expression = left + insert_space + operator + right
 
         # Standalone operator (e.g., "+" -> "प्लस", "?" -> "प्रश्न चिह्न")
         # When both left and right are empty, just output the operator
         # This matches when left="" and right="", so we just output operator
-        standalone_operator_expression = operator
+        standalone_operator_expression = left + operator + right
 
         graph = (
             simple_expression 
             | extended_expression 
-            | operator_number_expression 
-            | number_operator_expression 
-            | standalone_operator_expression
+            | pynutil.add_weight(operator_number_expression, 1.0)
+            | pynutil.add_weight(number_operator_expression, 1.0)
+            | pynutil.add_weight(standalone_operator_expression, 2.0)
         )
         delete_tokens = self.delete_tokens(graph)
         self.fst = delete_tokens.optimize()

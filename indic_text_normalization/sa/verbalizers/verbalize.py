@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pynini
+from pynini.lib import pynutil
+
 from indic_text_normalization.sa.graph_utils import GraphFst
 from indic_text_normalization.sa.verbalizers.abbreviation import AbbreviationFst
 from indic_text_normalization.sa.verbalizers.cardinal import CardinalFst
@@ -24,6 +27,7 @@ from indic_text_normalization.sa.verbalizers.measure import MeasureFst
 from indic_text_normalization.sa.verbalizers.money import MoneyFst
 from indic_text_normalization.sa.verbalizers.ordinal import OrdinalFst
 from indic_text_normalization.sa.verbalizers.roman import RomanFst
+from indic_text_normalization.sa.verbalizers.scientific import ScientificFst
 from indic_text_normalization.sa.verbalizers.telephone import TelephoneFst
 from indic_text_normalization.sa.verbalizers.time import TimeFst
 from indic_text_normalization.sa.verbalizers.whitelist import WhiteListFst
@@ -72,6 +76,10 @@ class VerbalizeFst(GraphFst):
         math = MathFst(deterministic=deterministic)
         math_graph = math.fst
 
+        ordinary_number = DecimalFst(deterministic=deterministic)
+        scientific = ScientificFst(deterministic=deterministic)
+        telephone = TelephoneFst(deterministic=deterministic).fst
+
         whitelist_graph = WhiteListFst(deterministic=deterministic).fst
 
         electronic_graph = ElectronicFst(deterministic=deterministic).fst
@@ -86,8 +94,10 @@ class VerbalizeFst(GraphFst):
             | money_graph
             | ordinal_graph
             | math_graph
+            | pynutil.add_weight(ordinary_number.fst, 1.1)
+            | pynutil.add_weight(scientific.fst, 1.1)
+            | pynutil.add_weight(telephone, 1.1)
             | whitelist_graph
-            | telephone_graph
             | electronic_graph
         )
 
