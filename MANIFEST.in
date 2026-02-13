@@ -2,5 +2,7 @@ include LICENSE
 include NOTICE
 include requirements.txt
 include requirements_test.txt
-recursive-include indic_text_normalization/text_normalization/*/data *.tsv
-recursive-include indic_text_normalization/text_normalization/*/data *.py
+recursive-include indic_text_normalization/*/data *.tsv
+recursive-include indic_text_normalization/*/data *.far
+recursive-include indic_text_normalization/en/data *.tsv
+recursive-include indic_text_normalization/en/data *.far

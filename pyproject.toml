@@ -1,0 +1,55 @@
+[build-system]
+requires = ["setuptools>=65.5.1", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "indic_text_normalization"
+version = "0.1.0"
+description = "Comprehensive text normalization for 19 Indian languages - extension of NVIDIA NeMo Text Processing"
+readme = "README.md"
+requires-python = ">=3.10,<3.13"
+license = { text = "Apache-2.0" }
+authors = [
+    { name = "Kenpath Technologies Pvt Ltd", email = "info@kenpath.io" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Linguistic",
+]
+keywords = ["indic", "hindi", "bengali", "tamil", "telugu", "tts", "asr", "text-processing", "text-normalization", "wfst", "pynini", "nemo"]
+dependencies = [
+    "cdifflib",
+    "editdistance",
+    "inflect",
+    "joblib",
+    "pandas",
+    "regex",
+    "sacremoses>=0.0.43",
+    "setuptools>=65.5.1",
+    "tqdm>=4.41.0",
+    "transformers",
+    "wget",
+    "wrapt",
+    "pynini>=2.1.7",
+]
+
+[project.urls]
+Documentation = "https://github.com/kenpath/indic-text-normalization#readme"
+Source = "https://github.com/kenpath/indic-text-normalization"
+"Bug Reports" = "https://github.com/kenpath/indic-text-normalization/issues"
+"Original Work" = "https://github.com/NVIDIA/NeMo-text-processing"
+
+[tool.setuptools]
+include-package-data = true
+zip-safe = false
+
+[tool.setuptools.packages.find]
+include = ["indic_text_normalization", "indic_text_normalization.*"]
