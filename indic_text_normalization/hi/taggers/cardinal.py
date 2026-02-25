@@ -23,16 +23,28 @@ arabic_to_hindi_digit = pynini.string_map([
     ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
     ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
 ]).optimize()
-arabic_to_hindi_number = pynini.closure(arabic_to_hindi_digit).optimize()
+arabic_to_hindi_number = pynini.closure(arabic_to_hindi_digit, 1).optimize()
 
 # Create a graph that deletes commas from digit sequences
-# This handles Indian number format where commas are separators (e.g., 1,000,001 or 5,67,300)
 any_digit = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT)
-# Pattern: digit (comma? digit)* - accepts digits with optional commas, deletes commas
-# This creates a transducer: input (with commas) -> output (without commas)
+
 delete_commas = (
     any_digit
     + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+).optimize()
+
+# Regex pattern for international comma formats (e.g. 1,000,000)
+# Group of 3 digits separated by comma
+comma = pynini.accep(",")
+three_digits = any_digit + any_digit + any_digit
+group_of_three = comma + three_digits
+international_comma_pattern = (pynini.closure(any_digit, 1, 3) + pynini.closure(group_of_three, 1)).optimize()
+
+# Indian comma format pattern (e.g. 10,00,000)
+indian_comma_pattern = (
+    pynini.closure(any_digit, 1, 2) + 
+    pynini.closure(comma + any_digit + any_digit, 1) + 
+    pynini.closure(comma + three_digits, 0, 1)
 ).optimize()
 
 
@@ -322,6 +334,75 @@ class CardinalFst(GraphFst):
         graph_leading_zero = zero + insert_space + single_digit
         graph_leading_zero = pynutil.add_weight(graph_leading_zero, 0.5)
 
+        # ---------------- INTERNATIONAL NUMBER GRAPH ----------------
+        
+        # Millions graph (6 zeros)
+        suffix_millions = pynutil.insert(" मिलियन")
+        graph_millions = create_graph_suffix(digit, suffix_millions, 6)
+        graph_millions |= create_larger_number_graph(digit, suffix_millions, 5, digit)
+        graph_millions |= create_larger_number_graph(digit, suffix_millions, 4, teens_ties)
+        graph_millions |= create_larger_number_graph(digit, suffix_millions, 3, graph_hundreds)
+        graph_millions |= create_larger_number_graph(digit, suffix_millions, 2, graph_thousands)
+        graph_millions |= create_larger_number_graph(digit, suffix_millions, 1, graph_ten_thousands)
+        graph_millions |= create_larger_number_graph(digit, suffix_millions, 0, graph_hundreds_as_thousand)
+        graph_millions.optimize()
+
+        graph_ten_millions = create_graph_suffix(teens_and_ties, suffix_millions, 6)
+        graph_ten_millions |= create_larger_number_graph(teens_and_ties, suffix_millions, 5, digit)
+        graph_ten_millions |= create_larger_number_graph(teens_and_ties, suffix_millions, 4, teens_ties)
+        graph_ten_millions |= create_larger_number_graph(teens_and_ties, suffix_millions, 3, graph_hundreds)
+        graph_ten_millions |= create_larger_number_graph(teens_and_ties, suffix_millions, 2, graph_thousands)
+        graph_ten_millions |= create_larger_number_graph(teens_and_ties, suffix_millions, 1, graph_ten_thousands)
+        graph_ten_millions |= create_larger_number_graph(teens_and_ties, suffix_millions, 0, graph_hundreds_as_thousand)
+        graph_ten_millions.optimize()
+        
+        graph_hundred_millions = create_graph_suffix(graph_hundreds, suffix_millions, 6)
+        graph_hundred_millions |= create_larger_number_graph(graph_hundreds, suffix_millions, 5, digit)
+        graph_hundred_millions |= create_larger_number_graph(graph_hundreds, suffix_millions, 4, teens_ties)
+        graph_hundred_millions |= create_larger_number_graph(graph_hundreds, suffix_millions, 3, graph_hundreds)
+        graph_hundred_millions |= create_larger_number_graph(graph_hundreds, suffix_millions, 2, graph_thousands)
+        graph_hundred_millions |= create_larger_number_graph(graph_hundreds, suffix_millions, 1, graph_ten_thousands)
+        graph_hundred_millions |= create_larger_number_graph(graph_hundreds, suffix_millions, 0, graph_hundreds_as_thousand)
+        graph_hundred_millions.optimize()
+
+        # Billions graph (9 zeros)
+        suffix_billions = pynutil.insert(" बिलियन")
+        graph_billions = create_graph_suffix(digit, suffix_billions, 9)
+        graph_billions |= create_larger_number_graph(digit, suffix_billions, 8, digit)
+        graph_billions |= create_larger_number_graph(digit, suffix_billions, 7, teens_ties)
+        graph_billions |= create_larger_number_graph(digit, suffix_millions, 6, graph_hundreds)
+        graph_billions |= create_larger_number_graph(digit, suffix_billions, 5, graph_thousands)
+        graph_billions |= create_larger_number_graph(digit, suffix_billions, 4, graph_ten_thousands)
+        graph_billions |= create_larger_number_graph(digit, suffix_billions, 3, graph_hundreds_as_thousand)
+        graph_billions |= create_larger_number_graph(digit, suffix_billions, 2, graph_millions)
+        graph_billions |= create_larger_number_graph(digit, suffix_billions, 1, graph_ten_millions)
+        graph_billions |= create_larger_number_graph(digit, suffix_billions, 0, graph_hundred_millions)
+        graph_billions.optimize()
+
+        graph_ten_billions = create_graph_suffix(teens_and_ties, suffix_billions, 9)
+        graph_ten_billions |= create_larger_number_graph(teens_and_ties, suffix_billions, 8, digit)
+        graph_ten_billions |= create_larger_number_graph(teens_and_ties, suffix_billions, 7, teens_ties)
+        graph_ten_billions |= create_larger_number_graph(teens_and_ties, suffix_millions, 6, graph_hundreds)
+        graph_ten_billions |= create_larger_number_graph(teens_and_ties, suffix_billions, 5, graph_thousands)
+        graph_ten_billions |= create_larger_number_graph(teens_and_ties, suffix_billions, 4, graph_ten_thousands)
+        graph_ten_billions |= create_larger_number_graph(teens_and_ties, suffix_billions, 3, graph_hundreds_as_thousand)
+        graph_ten_billions |= create_larger_number_graph(teens_and_ties, suffix_billions, 2, graph_millions)
+        graph_ten_billions |= create_larger_number_graph(teens_and_ties, suffix_billions, 1, graph_ten_millions)
+        graph_ten_billions |= create_larger_number_graph(teens_and_ties, suffix_billions, 0, graph_hundred_millions)
+        graph_ten_billions.optimize()
+        
+        graph_hundred_billions = create_graph_suffix(graph_hundreds, suffix_billions, 9)
+        graph_hundred_billions |= create_larger_number_graph(graph_hundreds, suffix_billions, 8, digit)
+        graph_hundred_billions |= create_larger_number_graph(graph_hundreds, suffix_billions, 7, teens_ties)
+        graph_hundred_billions |= create_larger_number_graph(graph_hundreds, suffix_millions, 6, graph_hundreds)
+        graph_hundred_billions |= create_larger_number_graph(graph_hundreds, suffix_billions, 5, graph_thousands)
+        graph_hundred_billions |= create_larger_number_graph(graph_hundreds, suffix_billions, 4, graph_ten_thousands)
+        graph_hundred_billions |= create_larger_number_graph(graph_hundreds, suffix_billions, 3, graph_hundreds_as_thousand)
+        graph_hundred_billions |= create_larger_number_graph(graph_hundreds, suffix_billions, 2, graph_millions)
+        graph_hundred_billions |= create_larger_number_graph(graph_hundreds, suffix_billions, 1, graph_ten_millions)
+        graph_hundred_billions |= create_larger_number_graph(graph_hundreds, suffix_billions, 0, graph_hundred_millions)
+        graph_hundred_billions.optimize()
+
         # Combine all number patterns efficiently
         # Support both Hindi digits and Arabic digits
         # Hindi digits go directly to final_graph
@@ -348,28 +429,42 @@ class CardinalFst(GraphFst):
             | graph_ten_shankhs
             | graph_leading_zero
         ).optimize()
-
-        # Add comma support: compose delete_commas with hindi_final_graph
-        # This allows inputs like "1,000,001" or "१,००,००१" to be processed
-        hindi_with_commas = pynini.compose(delete_commas, hindi_final_graph).optimize()
         
-        # Give comma-separated numbers higher priority (lower weight)
-        hindi_final_with_commas = pynutil.add_weight(hindi_with_commas, -0.1) | hindi_final_graph
+        intl_final_graph = (
+            digit
+            | zero
+            | teens_and_ties
+            | graph_hundreds
+            | graph_thousands
+            | graph_ten_thousands
+            | graph_hundreds_as_thousand
+            | graph_millions
+            | graph_ten_millions
+            | graph_hundred_millions
+            | graph_billions
+            | graph_ten_billions
+            | graph_hundred_billions
+            | graph_leading_zero
+        ).optimize()
 
+        # Enforce international format only if comma groups of 3 matched, otherwise fallback to Hindi format
+        # If numbers match international schema, remove commas explicitly and map to international
+        hindi_intl_with_commas = pynini.compose(international_comma_pattern, delete_commas) @ intl_final_graph
+        hindi_indian_with_commas = pynini.compose(indian_comma_pattern, delete_commas) @ hindi_final_graph
         # Arabic digits: convert to Hindi, then apply the same graph
         arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
         
-        # For Arabic digits with commas: delete commas first, then convert and process
-        arabic_with_commas = pynini.compose(
-            delete_commas,
-            arabic_to_hindi_number @ hindi_final_graph
-        ).optimize()
+        # Enforce that the string contains valid comma formatting by composing the arabic comma pattern
+        arabic_intl_with_commas = pynini.compose(international_comma_pattern, delete_commas) @ arabic_to_hindi_number @ intl_final_graph
+        arabic_indian_with_commas = pynini.compose(indian_comma_pattern, delete_commas) @ arabic_to_hindi_number @ hindi_final_graph
         
         # Regular Arabic digits without commas
         arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_hindi_number @ hindi_final_graph).optimize()
+
+        hindi_final_with_commas = pynutil.add_weight(hindi_intl_with_commas | hindi_indian_with_commas, -0.1) | hindi_final_graph
         
         # Combine: prioritize comma-separated, fallback to regular
-        arabic_final_with_commas = pynutil.add_weight(arabic_with_commas, -0.1) | arabic_final_graph
+        arabic_final_with_commas = pynutil.add_weight(arabic_intl_with_commas | arabic_indian_with_commas, -0.1) | arabic_final_graph
 
         # Combine both Hindi and Arabic digit paths (both with comma support)
         final_graph = hindi_final_with_commas | arabic_final_with_commas

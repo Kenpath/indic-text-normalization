@@ -20,11 +20,13 @@ from pynini.lib import pynutil
 from indic_text_normalization.hi.graph_utils import (
     NEMO_ALPHA,
     NEMO_DIGIT,
+    NEMO_HI_DIGIT,
     NEMO_NOT_SPACE,
     NEMO_SIGMA,
     GraphFst,
     convert_space,
 )
+from indic_text_normalization.hi.taggers.cardinal import arabic_to_hindi_digit
 from indic_text_normalization.hi.utils import get_abs_path, load_labels
 
 
@@ -49,13 +51,17 @@ class SerialFst(GraphFst):
             The serial is a combination of digits, letters and dashes, e.g.:
             c325b -> tokens { cardinal { integer: "c तीन दो पाँच b" } }
         """
+        any_digit = NEMO_DIGIT | NEMO_HI_DIGIT
+        
+        single_hindi_digit = pynini.compose(arabic_to_hindi_digit, cardinal.digit | cardinal.zero) | (cardinal.digit | cardinal.zero)
+        digit_by_digit = single_hindi_digit + pynini.closure(pynutil.insert(" ") + single_hindi_digit)
+
         if deterministic:
-            # For Hindi, use final_graph for numbers
-            num_graph = pynini.compose(NEMO_DIGIT ** (6, ...), cardinal.final_graph).optimize()
-            num_graph |= pynini.compose(NEMO_DIGIT ** (1, 5), cardinal.final_graph).optimize()
+            # For Hindi alphanumeric, all numbers inside alphanumeric codes are read digit-by-digit
+            num_graph = pynini.compose(any_digit ** (1, ...), digit_by_digit).optimize()
             # to handle numbers starting with zero
             num_graph |= pynini.compose(
-                pynini.accep("0") + pynini.closure(NEMO_DIGIT), cardinal.final_graph
+                (pynini.accep("0") | pynini.accep("०")) + pynini.closure(any_digit), digit_by_digit
             ).optimize()
         else:
             num_graph = cardinal.final_graph
@@ -70,13 +76,13 @@ class SerialFst(GraphFst):
             num_graph |= cardinal.final_graph
             # also allow double digits to be pronounced as integer in serial number
             num_graph |= pynutil.add_weight(
-                NEMO_DIGIT**2 @ cardinal.final_graph, weight=0.0001
+                any_digit**2 @ cardinal.final_graph, weight=0.0001
             )
 
         # add space between letter and digit/symbol
         symbols = [x[0] for x in load_labels(get_abs_path("data/whitelist/abbreviations.tsv"))]
         symbols = pynini.union(*symbols)
-        digit_symbol = NEMO_DIGIT | symbols
+        digit_symbol = any_digit | symbols
 
         graph_with_space = pynini.compose(
             pynini.cdrewrite(pynutil.insert(" "), NEMO_ALPHA | symbols, digit_symbol, NEMO_SIGMA),

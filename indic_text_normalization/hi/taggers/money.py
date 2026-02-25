@@ -46,43 +46,68 @@ class MoneyFst(GraphFst):
 
         cardinal_graph = cardinal.final_graph
 
-        # Create a graph that deletes commas from digit sequences
-        # This handles Indian number format where commas are separators (e.g., 5,67,300)
-        any_digit = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT)
-        # Pattern: digit (comma? digit)* - accepts digits with optional commas, deletes commas
-        # This creates a transducer: input (with commas) -> output (without commas)
-        delete_commas = (
-            any_digit
-            + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
-        ).optimize()
-        # Compose: numbers with commas -> delete commas -> cardinal conversion
-        # The composition works because delete_commas outputs digits, which cardinal_graph accepts as input
-        cardinal_with_commas = pynini.compose(delete_commas, cardinal_graph).optimize()
+        # Cardinal module now internally handles all commas, converting international 
+        # formats to properly formatted digits. We just directly feed parsing to cardinal_graph
+        cardinal_with_commas = cardinal_graph
 
         optional_graph_negative = pynini.closure(
             pynutil.insert("negative: ") + pynini.cross("-", "\"true\"") + insert_space,
             0,
             1,
         )
+        
+        # Pynini grammar matching string file: allows Rs., Rs, 100
         currency_major = pynutil.insert('currency_maj: "') + currency_graph + pynutil.insert('"')
+        
+        # Support spaced currency symbols: "Rs. 500" instead of just "Rs.500"
+        optional_space = pynini.closure(pynini.accep(" "), 0, 1)
+        
         # Use cardinal_with_commas (higher priority) to handle numbers with commas, fallback to regular cardinal_graph
         integer = pynutil.insert('integer_part: "') + (pynutil.add_weight(cardinal_with_commas, -0.1) | cardinal_graph) + pynutil.insert('"')
         fraction = pynutil.insert('fractional_part: "') + (pynutil.add_weight(cardinal_with_commas, -0.1) | cardinal_graph) + pynutil.insert('"')
         currency_minor = pynutil.insert('currency_min: "') + pynutil.insert("centiles") + pynutil.insert('"')
 
-        graph_major_only = optional_graph_negative + currency_major + insert_space + integer
+        # Add slight negative weight to prioritize consuming "/-" inside money rather than as separate punctuation
+        # Also allow optional space before it.
+        optional_slash_dash = pynini.closure(
+            pynutil.add_weight(pynini.closure(pynini.accep(" "), 0, 1) + pynutil.delete("/-"), -0.1),
+            0,
+            1,
+        )
+
+        graph_major_only = optional_graph_negative + currency_major + optional_space + insert_space + integer + optional_slash_dash
         graph_major_and_minor = (
             optional_graph_negative
             + currency_major
+            + optional_space
             + insert_space
             + integer
+            + optional_space
             + pynini.cross(".", " ")
             + fraction
             + insert_space
             + currency_minor
+            + optional_slash_dash
         )
 
-        graph_currencies = graph_major_only | graph_major_and_minor
+        # Allow alternative formats where number comes before the currency, e.g., "500 Rs." or "500 रुपए"
+        # Often occurs in text formatting.
+        graph_major_only_suffix = optional_graph_negative + integer + insert_space + optional_space + currency_major + optional_slash_dash
+        graph_major_and_minor_suffix = (
+            optional_graph_negative
+            + integer
+            + optional_space
+            + pynini.cross(".", " ")
+            + fraction
+            + optional_space
+            + insert_space
+            + currency_minor
+            + insert_space
+            + currency_major
+            + optional_slash_dash
+        )
+
+        graph_currencies = graph_major_only | graph_major_and_minor | pynutil.add_weight(graph_major_only_suffix | graph_major_and_minor_suffix, 0.5)
 
         graph = graph_currencies.optimize()
         final_graph = self.add_tokens(graph)

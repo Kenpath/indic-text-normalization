@@ -64,6 +64,17 @@ class MeasureFst(GraphFst):
         )
 
         graph = (graph_cardinal | graph_decimal) + delete_space + insert_space + unit
+        
+        # Support for math expressions which use units: "math" but shouldn't print "math"
+        math_unit = pynutil.delete("units: \"math\"") + delete_space
+        preserve_order = pynini.closure(delete_space + pynutil.delete("preserve_order: true"), 0, 1)
+        math_graph = (
+            math_unit
+            + graph_cardinal
+            + preserve_order
+        )
+        
+        graph |= math_graph
         self.decimal = graph_decimal
         delete_tokens = self.delete_tokens(graph)
         self.fst = delete_tokens.optimize()
