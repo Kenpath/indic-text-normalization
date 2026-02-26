@@ -20,11 +20,13 @@ from pynini.lib import pynutil
 from indic_text_normalization.kn.graph_utils import (
     NEMO_ALPHA,
     NEMO_DIGIT,
+    NEMO_KN_DIGIT,
     NEMO_NOT_SPACE,
     NEMO_SIGMA,
     GraphFst,
     convert_space,
 )
+from indic_text_normalization.kn.taggers.cardinal import arabic_to_kannada_digit
 from indic_text_normalization.kn.utils import get_abs_path, load_labels
 
 
@@ -49,13 +51,38 @@ class SerialFst(GraphFst):
             The serial is a combination of digits, letters and dashes, e.g.:
             c325b -> tokens { cardinal { integer: "c ಮೂರು ಎರಡು ಐದು b" } }
         """
+        # Support ASCII, Kannada, and Devanagari digits in serial-like codes (e.g. IFSC).
+        devanagari_to_kannada_digit = pynini.string_map(
+            [
+                ("०", "೦"),
+                ("१", "೧"),
+                ("२", "೨"),
+                ("३", "೩"),
+                ("४", "೪"),
+                ("५", "೫"),
+                ("६", "೬"),
+                ("७", "೭"),
+                ("८", "೮"),
+                ("९", "೯"),
+            ]
+        ).optimize()
+        nemo_dev_digit = pynini.union("०", "१", "२", "३", "४", "५", "६", "७", "८", "९").optimize()
+        any_digit = (NEMO_DIGIT | NEMO_KN_DIGIT | nemo_dev_digit).optimize()
+
+        single_kannada_digit = (cardinal.digit | cardinal.zero).optimize()
+        single_digit = (
+            pynini.compose(arabic_to_kannada_digit, single_kannada_digit)
+            | pynini.compose(devanagari_to_kannada_digit, single_kannada_digit)
+            | single_kannada_digit
+        ).optimize()
+        digit_by_digit = (single_digit + pynini.closure(pynutil.insert(" ") + single_digit)).optimize()
+
         if deterministic:
-            # For Kannada, use final_graph for numbers
-            num_graph = pynini.compose(NEMO_DIGIT ** (6, ...), cardinal.final_graph).optimize()
-            num_graph |= pynini.compose(NEMO_DIGIT ** (1, 5), cardinal.final_graph).optimize()
-            # to handle numbers starting with zero
+            # In alphanumeric codes, read digit runs digit-by-digit instead of as full cardinals.
+            num_graph = pynini.compose(any_digit ** (1, ...), digit_by_digit).optimize()
+            # Keep explicit leading-zero variants.
             num_graph |= pynini.compose(
-                pynini.accep("0") + pynini.closure(NEMO_DIGIT), cardinal.final_graph
+                pynini.union("0", "೦", "०") + pynini.closure(any_digit), digit_by_digit
             ).optimize()
         else:
             num_graph = cardinal.final_graph
@@ -70,14 +97,14 @@ class SerialFst(GraphFst):
             num_graph |= cardinal.final_graph
             # also allow double digits to be pronounced as integer in serial number
             num_graph |= pynutil.add_weight(
-                NEMO_DIGIT**2 @ cardinal.final_graph, weight=0.0001
+                any_digit**2 @ cardinal.final_graph, weight=0.0001
             )
 
         # add space between letter and digit/symbol
         labels = load_labels(get_abs_path("data/whitelist/abbreviations.tsv"))
         symbols = [x[0] for x in labels if x and not x[0].startswith("#")]
         symbols = pynini.union(*symbols)
-        digit_symbol = NEMO_DIGIT | symbols
+        digit_symbol = any_digit | symbols
 
         graph_with_space = pynini.compose(
             pynini.cdrewrite(pynutil.insert(" "), NEMO_ALPHA | symbols, digit_symbol, NEMO_SIGMA),
