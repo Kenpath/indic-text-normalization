@@ -31,6 +31,15 @@ delete_commas = (
     any_digit + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
 ).optimize()
 
+# Indian comma format pattern (e.g. 12,34,567)
+comma = pynini.accep(",")
+three_digits = any_digit + any_digit + any_digit
+indian_comma_pattern = (
+    pynini.closure(any_digit, 1, 2)
+    + pynini.closure(comma + any_digit + any_digit, 1)
+    + pynini.closure(comma + three_digits, 0, 1)
+).optimize()
+
 
 class CardinalFst(GraphFst):
     """
@@ -164,18 +173,117 @@ class CardinalFst(GraphFst):
             | graph_leading_zero
         ).optimize()
 
-        # Allow comma-separated inputs by deleting commas before applying the number graph.
-        # Kannada digits with commas
-        kannada_with_commas = pynini.compose(delete_commas, kannada_final_graph).optimize()
-        kannada_final_with_commas = pynutil.add_weight(kannada_with_commas, -0.1) | kannada_final_graph
+        # Strict international comma handling (Task-2):
+        #   X,YYY -> X ಸಾವಿರ YYY
+        #   X,YYY,ZZZ -> X ಮಿಲಿಯನ್ YYY ಸಾವಿರ ZZZ
+        # Also supports compact zero groups, e.g. 1,000,001 -> ಒಂದು ಮಿಲಿಯನ್ ಒಂದು.
+        kn_1_3 = pynini.closure(NEMO_KN_DIGIT, 1, 3)
+        ar_1_3 = pynini.closure(NEMO_DIGIT, 1, 3)
+        kn_3 = NEMO_KN_DIGIT + NEMO_KN_DIGIT + NEMO_KN_DIGIT
+        ar_3 = NEMO_DIGIT + NEMO_DIGIT + NEMO_DIGIT
+        kn_3_nonzero = pynini.difference(kn_3, pynini.accep("೦೦೦")).optimize()
+        ar_3_nonzero = pynini.difference(ar_3, pynini.accep("000")).optimize()
+
+        up_to_999 = (graph_hundreds | teens_and_ties | digit | zero).optimize()
+        leading_zero_strip = pynini.closure(pynutil.delete("೦"), 0, 2)
+
+        group_1_3 = (
+            pynini.compose(kn_1_3, kannada_final_graph)
+            | pynini.compose(ar_1_3, arabic_to_kannada_number @ kannada_final_graph)
+        ).optimize()
+        group_3 = (
+            pynini.compose(kn_3, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3, arabic_to_kannada_number @ (leading_zero_strip + up_to_999))
+        ).optimize()
+        group_3_nonzero = (
+            pynini.compose(kn_3_nonzero, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3_nonzero, arabic_to_kannada_number @ (leading_zero_strip + up_to_999))
+        ).optimize()
+
+        delete_comma = pynutil.delete(",")
+        intl_thousand = (
+            group_1_3 + delete_comma + pynutil.insert(" ಸಾವಿರ ") + group_3
+        ).optimize()
+        intl_thousand_zero_tail = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" ಸಾವಿರ")
+            + pynutil.delete(pynini.union("೦೦೦", "000"))
+        ).optimize()
+        intl_million = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" ಮಿಲಿಯನ್ ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" ಸಾವಿರ ")
+            + group_3
+        ).optimize()
+        intl_million_zero_thousand = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" ಮಿಲಿಯನ್ ")
+            + pynutil.delete(pynini.union("೦೦೦", "000"))
+            + delete_comma
+            + group_3
+        ).optimize()
+        intl_billion = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" ಬಿಲಿಯನ್ ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" ಮಿಲಿಯನ್ ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" ಸಾವಿರ ")
+            + group_3
+        ).optimize()
+        intl_trillion = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" ಟ್ರಿಲಿಯನ್ ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" ಬಿಲಿಯನ್ ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" ಮಿಲಿಯನ್ ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" ಸಾವಿರ ")
+            + group_3
+        ).optimize()
+        strict_intl_with_commas = (
+            pynutil.add_weight(intl_million_zero_thousand, -0.1)
+            | pynutil.add_weight(intl_thousand_zero_tail, -0.1)
+            | intl_trillion
+            | intl_billion
+            | intl_million
+            | intl_thousand
+        ).optimize()
+
+        # Indian comma/default handling: only for valid Indian comma groupings.
+        kannada_with_commas = (pynini.compose(indian_comma_pattern, delete_commas) @ kannada_final_graph).optimize()
+        kannada_final_with_commas = (
+            pynutil.add_weight(strict_intl_with_commas, -0.1)
+            | pynutil.add_weight(kannada_with_commas, -0.1)
+            | kannada_final_graph
+        )
 
         # Arabic digits: convert to Kannada, then apply the same graph
         arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
         arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_kannada_number @ kannada_final_graph).optimize()
 
-        # Arabic digits with commas: delete commas first, then convert and apply the same graph
-        arabic_with_commas = pynini.compose(delete_commas, arabic_to_kannada_number @ kannada_final_graph).optimize()
-        arabic_final_with_commas = pynutil.add_weight(arabic_with_commas, -0.1) | arabic_final_graph
+        # Arabic digits with Indian commas.
+        arabic_with_commas = (
+            pynini.compose(indian_comma_pattern, delete_commas) @ arabic_to_kannada_number @ kannada_final_graph
+        ).optimize()
+        arabic_final_with_commas = (
+            pynutil.add_weight(strict_intl_with_commas, -0.1)
+            | pynutil.add_weight(arabic_with_commas, -0.1)
+            | arabic_final_graph
+        )
 
         # Combine both Kannada and Arabic digit paths
         final_graph = kannada_final_with_commas | arabic_final_with_commas
@@ -186,4 +294,3 @@ class CardinalFst(GraphFst):
         final_graph = optional_minus_graph + pynutil.insert("integer: \"") + self.final_graph + pynutil.insert("\"")
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph
-
