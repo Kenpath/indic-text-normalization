@@ -367,43 +367,81 @@ class CardinalFst(GraphFst):
             arabic_digit_input_long, arabic_to_malayalam_number @ digit_sequence_graph
         ).optimize()
 
-        # Handle comma-separated numbers (e.g., 1,234,567)
-        # These can be any length because commas indicate it's NOT a phone number
-        # Delete commas and then verbalize as a complete number
+        # Comma-aware dual support:
+        # - International grouped commas -> million/billion/trillion style.
+        # - Indian grouped commas -> existing Indian scale style.
         any_digit = pynini.union(NEMO_DIGIT, NEMO_MA_DIGIT)
         delete_commas = (
-            any_digit
-            + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+            any_digit + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
         ).optimize()
-        
-        # Input pattern: must contain at least one comma
-        # Pattern: digits + comma + (digits/comma)*
-        # This ensures we only match actual comma-separated numbers
-        digit_or_comma = pynini.union(NEMO_DIGIT, pynini.accep(","))
-        arabic_input_with_comma = (
-            pynini.closure(NEMO_DIGIT, 1)  # At least one digit
-            + pynini.accep(",")  # At least one comma
-            + pynini.closure(digit_or_comma)  # More digits/commas
+        comma = pynini.accep(",")
+        three_digits = any_digit + any_digit + any_digit
+        indian_comma_pattern = (
+            pynini.closure(any_digit, 1, 2)
+            + pynini.closure(comma + any_digit + any_digit, 1)
+            + pynini.closure(comma + three_digits, 0, 1)
         ).optimize()
-        
-        malayalam_digit_or_comma = pynini.union(NEMO_MA_DIGIT, pynini.accep(","))
-        malayalam_input_with_comma = (
-            pynini.closure(NEMO_MA_DIGIT, 1)  # At least one digit
-            + pynini.accep(",")  # At least one comma
-            + pynini.closure(malayalam_digit_or_comma)  # More digits/commas
+
+        ml_1_3 = pynini.closure(NEMO_MA_DIGIT, 1, 3)
+        ar_1_3 = pynini.closure(NEMO_DIGIT, 1, 3)
+        ml_3 = NEMO_MA_DIGIT + NEMO_MA_DIGIT + NEMO_MA_DIGIT
+        ar_3 = NEMO_DIGIT + NEMO_DIGIT + NEMO_DIGIT
+        ml_3_nonzero = pynini.difference(ml_3, pynini.accep("൦൦൦")).optimize()
+        ar_3_nonzero = pynini.difference(ar_3, pynini.accep("000")).optimize()
+        up_to_999 = (graph_hundreds | teens_ties | digit | zero).optimize()
+        leading_zero_strip = pynini.closure(pynutil.delete("൦"), 0, 2)
+
+        group_1_3 = (
+            pynini.compose(ml_1_3, malayalam_final_graph)
+            | pynini.compose(ar_1_3, arabic_to_malayalam_number @ malayalam_final_graph)
         ).optimize()
-        
-        # Compose: numbers with commas -> delete commas -> cardinal conversion
-        # For Arabic digits with commas (any length allowed)
-        arabic_with_commas = pynini.compose(
-            arabic_input_with_comma,
-            delete_commas @ (arabic_to_malayalam_number @ malayalam_final_graph)
+        group_3 = (
+            pynini.compose(ml_3, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3, arabic_to_malayalam_number @ (leading_zero_strip + up_to_999))
         ).optimize()
-        
-        # For Malayalam digits with commas (any length allowed)
-        malayalam_with_commas = pynini.compose(
-            malayalam_input_with_comma,
-            delete_commas @ malayalam_final_graph
+        group_3_nonzero = (
+            pynini.compose(ml_3_nonzero, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3_nonzero, arabic_to_malayalam_number @ (leading_zero_strip + up_to_999))
+        ).optimize()
+        delete_comma = pynutil.delete(",")
+
+        intl_thousand = (group_1_3 + delete_comma + pynutil.insert(" ആയിരം ") + group_3).optimize()
+        intl_thousand_zero_tail = (
+            group_1_3 + delete_comma + pynutil.insert(" ആയിരം") + pynutil.delete(pynini.union("൦൦൦", "000"))
+        ).optimize()
+        intl_million = (
+            group_1_3 + delete_comma + pynutil.insert(" മില്യൺ ")
+            + group_3_nonzero + delete_comma + pynutil.insert(" ആയിരം ") + group_3
+        ).optimize()
+        intl_million_zero_thousand = (
+            group_1_3 + delete_comma + pynutil.insert(" മില്യൺ ")
+            + pynutil.delete(pynini.union("൦൦൦", "000")) + delete_comma + group_3
+        ).optimize()
+        intl_billion = (
+            group_1_3 + delete_comma + pynutil.insert(" ബില്യൺ ")
+            + group_3_nonzero + delete_comma + pynutil.insert(" മില്യൺ ")
+            + group_3_nonzero + delete_comma + pynutil.insert(" ആയിരം ") + group_3
+        ).optimize()
+        intl_trillion = (
+            group_1_3 + delete_comma + pynutil.insert(" ട്രില്യൺ ")
+            + group_3_nonzero + delete_comma + pynutil.insert(" ബില്യൺ ")
+            + group_3_nonzero + delete_comma + pynutil.insert(" മില്യൺ ")
+            + group_3_nonzero + delete_comma + pynutil.insert(" ആയിരം ") + group_3
+        ).optimize()
+        strict_intl_with_commas = (
+            pynutil.add_weight(intl_million_zero_thousand, -0.1)
+            | pynutil.add_weight(intl_thousand_zero_tail, -0.1)
+            | intl_trillion
+            | intl_billion
+            | intl_million
+            | intl_thousand
+        ).optimize()
+
+        arabic_with_commas = (
+            pynini.compose(indian_comma_pattern, delete_commas) @ (arabic_to_malayalam_number @ malayalam_final_graph)
+        ).optimize()
+        malayalam_with_commas = (
+            pynini.compose(indian_comma_pattern, delete_commas) @ malayalam_final_graph
         ).optimize()
 
 
@@ -411,7 +449,8 @@ class CardinalFst(GraphFst):
         # Comma-separated numbers have highest priority
         # Then regular numbers (< 7 digits)
         final_graph = (
-            pynutil.add_weight(arabic_with_commas, -0.1)
+            pynutil.add_weight(strict_intl_with_commas, -0.1)
+            | pynutil.add_weight(arabic_with_commas, -0.1)
             | pynutil.add_weight(malayalam_with_commas, -0.1)
             | pynutil.add_weight(arabic_long_digit_graph, -0.05)
             | pynutil.add_weight(malayalam_long_digit_graph, -0.05)
@@ -426,4 +465,3 @@ class CardinalFst(GraphFst):
         final_graph = optional_minus_graph + pynutil.insert("integer: \"") + self.final_graph + pynutil.insert("\"")
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph
-

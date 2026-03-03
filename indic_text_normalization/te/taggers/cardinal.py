@@ -35,6 +35,15 @@ delete_commas = (
     + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
 ).optimize()
 
+# Indian comma format pattern (e.g. 12,34,567)
+comma = pynini.accep(",")
+three_digits = any_digit + any_digit + any_digit
+indian_comma_pattern = (
+    pynini.closure(any_digit, 1, 2)
+    + pynini.closure(comma + any_digit + any_digit, 1)
+    + pynini.closure(comma + three_digits, 0, 1)
+).optimize()
+
 
 class CardinalFst(GraphFst):
     """
@@ -200,31 +209,113 @@ class CardinalFst(GraphFst):
             | graph_leading_zero
         ).optimize()
 
-        # Arabic digits: convert to Telugu, then apply the same graph
-        arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
-        arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_telugu_number @ telugu_final_graph).optimize()
+        # Strict international comma handling:
+        #   X,YYY -> X వెయ్యి YYY
+        #   X,YYY,ZZZ -> X మిలియన్ YYY వెయ్యి ZZZ
+        #   X,YYY,ZZZ,WWW -> X బిలియన్ YYY మిలియన్ ZZZ వెయ్యి WWW
+        #   X,YYY,ZZZ,WWW,VVV -> X ట్రిలియన్ YYY బిలియన్ ZZZ మిలియన్ WWW వెయ్యి VVV
+        te_1_3 = pynini.closure(NEMO_TE_DIGIT, 1, 3)
+        ar_1_3 = pynini.closure(NEMO_DIGIT, 1, 3)
+        te_3 = NEMO_TE_DIGIT + NEMO_TE_DIGIT + NEMO_TE_DIGIT
+        ar_3 = NEMO_DIGIT + NEMO_DIGIT + NEMO_DIGIT
+        te_3_nonzero = pynini.difference(te_3, pynini.accep("౦౦౦")).optimize()
+        ar_3_nonzero = pynini.difference(ar_3, pynini.accep("000")).optimize()
 
-        # Add comma support: compose delete_commas with telugu_final_graph
-        # This allows inputs like "1,000,001" or "౧,౦౦౦,౦౦౧" to be processed
-        telugu_with_commas = pynini.compose(delete_commas, telugu_final_graph).optimize()
+        up_to_999 = (graph_hundreds | teens_and_ties | digit | zero).optimize()
+        leading_zero_strip = pynini.closure(pynutil.delete("౦"), 0, 2)
 
-        # Give comma-separated numbers higher priority (lower weight)
-        telugu_final_with_commas = pynutil.add_weight(telugu_with_commas, -0.1) | telugu_final_graph
-
-        # Arabic digits: convert to Telugu, then apply the same graph
-
-        # For Arabic digits with commas: delete commas first, then convert and process
-        arabic_with_commas = pynini.compose(
-            delete_commas,
-            arabic_to_telugu_number @ telugu_final_graph
+        group_1_3 = (
+            pynini.compose(te_1_3, telugu_final_graph)
+            | pynini.compose(ar_1_3, arabic_to_telugu_number @ telugu_final_graph)
+        ).optimize()
+        group_3 = (
+            pynini.compose(te_3, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3, arabic_to_telugu_number @ (leading_zero_strip + up_to_999))
+        ).optimize()
+        group_3_nonzero = (
+            pynini.compose(te_3_nonzero, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3_nonzero, arabic_to_telugu_number @ (leading_zero_strip + up_to_999))
         ).optimize()
 
-        # Regular Arabic digits without commas
+        delete_comma = pynutil.delete(",")
+        intl_thousand = (
+            group_1_3 + delete_comma + pynutil.insert(" వెయ్యి ") + group_3
+        ).optimize()
+        intl_thousand_zero_tail = (
+            group_1_3 + delete_comma + pynutil.insert(" వెయ్యి") + pynutil.delete(pynini.union("౦౦౦", "000"))
+        ).optimize()
+        intl_million = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" మిలియన్ ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" వెయ్యి ")
+            + group_3
+        ).optimize()
+        intl_million_zero_thousand = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" మిలియన్ ")
+            + pynutil.delete(pynini.union("౦౦౦", "000"))
+            + delete_comma
+            + group_3
+        ).optimize()
+        intl_billion = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" బిలియన్ ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" మిలియన్ ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" వెయ్యి ")
+            + group_3
+        ).optimize()
+        intl_trillion = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" ట్రిలియన్ ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" బిలియన్ ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" మిలియన్ ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" వెయ్యి ")
+            + group_3
+        ).optimize()
+        strict_intl_with_commas = (
+            pynutil.add_weight(intl_million_zero_thousand, -0.1)
+            | pynutil.add_weight(intl_thousand_zero_tail, -0.1)
+            | intl_trillion
+            | intl_billion
+            | intl_million
+            | intl_thousand
+        ).optimize()
+
+        # Indian comma/default handling.
+        telugu_with_commas = (pynini.compose(indian_comma_pattern, delete_commas) @ telugu_final_graph).optimize()
+        telugu_final_with_commas = (
+            pynutil.add_weight(strict_intl_with_commas, -0.1)
+            | pynutil.add_weight(telugu_with_commas, -0.1)
+            | telugu_final_graph
+        )
+
+        # Arabic digits: convert to Telugu, then apply the same graph.
         arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
         arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_telugu_number @ telugu_final_graph).optimize()
-
-        # Combine: prioritize comma-separated, fallback to regular
-        arabic_final_with_commas = pynutil.add_weight(arabic_with_commas, -0.1) | arabic_final_graph
+        arabic_with_commas = (
+            pynini.compose(indian_comma_pattern, delete_commas) @ arabic_to_telugu_number @ telugu_final_graph
+        ).optimize()
+        arabic_final_with_commas = (
+            pynutil.add_weight(strict_intl_with_commas, -0.1)
+            | pynutil.add_weight(arabic_with_commas, -0.1)
+            | arabic_final_graph
+        )
 
         # Combine both Telugu and Arabic digit paths (both with comma support)
         final_graph = telugu_final_with_commas | arabic_final_with_commas
@@ -235,4 +326,3 @@ class CardinalFst(GraphFst):
         final_graph = optional_minus_graph + pynutil.insert("integer: \"") + self.final_graph + pynutil.insert("\"")
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph
-

@@ -35,6 +35,15 @@ arabic_to_tamil_number = pynini.closure(arabic_to_tamil_digit).optimize()
 any_digit = pynini.union(NEMO_DIGIT, NEMO_TA_DIGIT)
 delete_commas = (any_digit + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)).optimize()
 
+# Indian comma format pattern (e.g. 12,34,567)
+comma = pynini.accep(",")
+three_digits = any_digit + any_digit + any_digit
+indian_comma_pattern = (
+    pynini.closure(any_digit, 1, 2)
+    + pynini.closure(comma + any_digit + any_digit, 1)
+    + pynini.closure(comma + three_digits, 0, 1)
+).optimize()
+
 
 class CardinalFst(GraphFst):
     """
@@ -270,14 +279,111 @@ class CardinalFst(GraphFst):
         arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
         arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_tamil_number @ tamil_final_graph).optimize()
         
-        # Add comma support: delete commas and then interpret as a single number.
-        # Tamil with commas
-        tamil_with_commas = pynini.compose(delete_commas, tamil_final_graph).optimize()
-        tamil_final_with_commas = pynutil.add_weight(tamil_with_commas, -0.1) | tamil_final_graph
+        # Strict international comma handling:
+        #   X,YYY -> X ஆயிரம் YYY
+        #   X,YYY,ZZZ -> X மில்லியன் YYY ஆயிரம் ZZZ
+        #   X,YYY,ZZZ,WWW -> X பில்லியன் YYY மில்லியன் ZZZ ஆயிரம் WWW
+        #   X,YYY,ZZZ,WWW,VVV -> X டிரில்லியன் YYY பில்லியன் ZZZ மில்லியன் WWW ஆயிரம் VVV
+        ta_1_3 = pynini.closure(NEMO_TA_DIGIT, 1, 3)
+        ar_1_3 = pynini.closure(NEMO_DIGIT, 1, 3)
+        ta_3 = NEMO_TA_DIGIT + NEMO_TA_DIGIT + NEMO_TA_DIGIT
+        ar_3 = NEMO_DIGIT + NEMO_DIGIT + NEMO_DIGIT
+        ta_3_nonzero = pynini.difference(ta_3, pynini.accep("௦௦௦")).optimize()
+        ar_3_nonzero = pynini.difference(ar_3, pynini.accep("000")).optimize()
 
-        # Arabic with commas: delete commas first, then convert and interpret
-        arabic_with_commas = pynini.compose(delete_commas, arabic_to_tamil_number @ tamil_final_graph).optimize()
-        arabic_final_with_commas = pynutil.add_weight(arabic_with_commas, -0.1) | arabic_final_graph
+        up_to_999 = (graph_all_hundreds | teens_and_ties | digit | zero).optimize()
+        leading_zero_strip = pynini.closure(pynutil.delete("௦"), 0, 2)
+
+        group_1_3 = (
+            pynini.compose(ta_1_3, tamil_final_graph)
+            | pynini.compose(ar_1_3, arabic_to_tamil_number @ tamil_final_graph)
+        ).optimize()
+        group_3 = (
+            pynini.compose(ta_3, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3, arabic_to_tamil_number @ (leading_zero_strip + up_to_999))
+        ).optimize()
+        group_3_nonzero = (
+            pynini.compose(ta_3_nonzero, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3_nonzero, arabic_to_tamil_number @ (leading_zero_strip + up_to_999))
+        ).optimize()
+
+        delete_comma = pynutil.delete(",")
+        intl_thousand = (
+            group_1_3 + delete_comma + pynutil.insert(" ஆயிரம் ") + group_3
+        ).optimize()
+        intl_thousand_zero_tail = (
+            group_1_3 + delete_comma + pynutil.insert(" ஆயிரம்") + pynutil.delete(pynini.union("௦௦௦", "000"))
+        ).optimize()
+        intl_million = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" மில்லியன் ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" ஆயிரம் ")
+            + group_3
+        ).optimize()
+        intl_million_zero_thousand = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" மில்லியன் ")
+            + pynutil.delete(pynini.union("௦௦௦", "000"))
+            + delete_comma
+            + group_3
+        ).optimize()
+        intl_billion = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" பில்லியன் ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" மில்லியன் ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" ஆயிரம் ")
+            + group_3
+        ).optimize()
+        intl_trillion = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" டிரில்லியன் ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" பில்லியன் ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" மில்லியன் ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" ஆயிரம் ")
+            + group_3
+        ).optimize()
+        strict_intl_with_commas = (
+            pynutil.add_weight(intl_million_zero_thousand, -0.1)
+            | pynutil.add_weight(intl_thousand_zero_tail, -0.1)
+            | intl_trillion
+            | intl_billion
+            | intl_million
+            | intl_thousand
+        ).optimize()
+
+        # Indian comma/default handling.
+        tamil_with_commas = (pynini.compose(indian_comma_pattern, delete_commas) @ tamil_final_graph).optimize()
+        tamil_final_with_commas = (
+            pynutil.add_weight(strict_intl_with_commas, -0.1)
+            | pynutil.add_weight(tamil_with_commas, -0.1)
+            | tamil_final_graph
+        )
+
+        # Arabic with Indian commas.
+        arabic_with_commas = (
+            pynini.compose(indian_comma_pattern, delete_commas) @ arabic_to_tamil_number @ tamil_final_graph
+        ).optimize()
+        arabic_final_with_commas = (
+            pynutil.add_weight(strict_intl_with_commas, -0.1)
+            | pynutil.add_weight(arabic_with_commas, -0.1)
+            | arabic_final_graph
+        )
 
         # Combine both Tamil and Arabic digit paths (both with comma support)
         final_graph = tamil_final_with_commas | arabic_final_with_commas
@@ -296,4 +402,3 @@ class CardinalFst(GraphFst):
         )
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph.optimize()
-
