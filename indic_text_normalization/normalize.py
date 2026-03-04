@@ -320,6 +320,46 @@ class Normalizer:
         if not text:
             logger.debug(text)
             return text
+        # Punjabi grammar has tighter coverage for compact arithmetic forms like "10-7=3".
+        # Compact common spaced variants to avoid hard failures on inputs such as "10 - 7 = 3".
+        if self.lang == "pa":
+            text = re.sub(r'([0-9०-९]+)\s*-\s*([0-9०-९]+)\s*=\s*([0-9०-९]+)', r'\1-\2=\3', text)
+            # Normalize common rupee notations to a unified form for money grammars.
+            # Examples: RS5000, Rs. 5000, rs 500/-, INR 500 -> ₹5000[/-]
+            text = re.sub(
+                r'(?<!\w)(?:RS|Rs|rs|INR|Inr|inr)\.?\s*([0-9०-९][0-9०-९,]*)(\s*/-)?',
+                lambda m: f"₹{m.group(1)}{'/-' if m.group(2) else ''}",
+                text,
+            )
+            # Expand Greek/math symbols to spoken Punjabi forms.
+            pa_symbol_map = {
+                "α": "ਅਲਫਾ",
+                "β": "ਬੀਟਾ",
+                "γ": "ਗਾਮਾ",
+                "δ": "ਡੈਲਟਾ",
+                "ε": "ਐਪਸਿਲਨ",
+                "ζ": "ਜ਼ੀਟਾ",
+                "η": "ਈਟਾ",
+                "θ": "ਥੀਟਾ",
+                "λ": "ਲੈਂਬਡਾ",
+                "μ": "ਮਿਊ",
+                "ξ": "ਕਸਾਈ",
+                "π": "ਪਾਈ",
+                "ρ": "ਰੋ",
+                "σ": "ਸਿਗਮਾ",
+                "τ": "ਟਾਊ",
+                "φ": "ਫਾਈ",
+                "ψ": "ਸਾਈ",
+                "ω": "ਓਮੇਗਾ",
+                "√": "ਵਰਗਮੂਲ",
+                "×": "ਗੁਣਾ",
+                "÷": "ਭਾਗ",
+                "≈": "ਲਗਭਗ ਬਰਾਬਰ",
+            }
+            for sym, word in pa_symbol_map.items():
+                if sym in text:
+                    text = text.replace(sym, f" {word} ")
+            text = SPACE_DUP.sub(" ", text).strip()
         text = pynini.escape(text)
         tagged_lattice = self.find_tags(text)
         tagged_text = Normalizer.select_tag(tagged_lattice)

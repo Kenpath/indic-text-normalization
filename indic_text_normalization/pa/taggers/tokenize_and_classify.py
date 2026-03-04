@@ -20,6 +20,11 @@ import pynini
 from pynini.lib import pynutil
 
 from indic_text_normalization.pa.graph_utils import (
+    NEMO_ALPHA,
+    NEMO_DIGIT,
+    NEMO_HI_DIGIT,
+    NEMO_NOT_SPACE,
+    NEMO_SIGMA,
     NEMO_SPACE,
     NEMO_WHITE_SPACE,
     GraphFst,
@@ -40,6 +45,8 @@ from indic_text_normalization.pa.taggers.punctuation import PunctuationFst
 from indic_text_normalization.pa.taggers.range import RangeFst
 from indic_text_normalization.pa.taggers.roman import RomanFst
 from indic_text_normalization.pa.taggers.serial import SerialFst
+from indic_text_normalization.pa.taggers.power import PowerFst
+from indic_text_normalization.pa.taggers.scientific import ScientificFst
 from indic_text_normalization.pa.taggers.telephone import TelephoneFst
 from indic_text_normalization.pa.taggers.time import TimeFst
 from indic_text_normalization.pa.taggers.whitelist import WhiteListFst
@@ -135,6 +142,14 @@ class ClassifyFst(GraphFst):
             logging.debug(f"math: {time.time() - start_time:.2f}s -- {math_graph.num_states()} nodes")
 
             start_time = time.time()
+            power = PowerFst(cardinal=cardinal, deterministic=deterministic)
+            power_graph = power.fst
+
+            scientific = ScientificFst(cardinal=cardinal, deterministic=deterministic)
+            scientific_graph = scientific.fst
+            logging.debug(f"power/scientific: {time.time() - start_time:.2f}s")
+
+            start_time = time.time()
             whitelist = WhiteListFst(
                 input_case=input_case, deterministic=deterministic, input_file=whitelist
             )
@@ -204,6 +219,8 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(electronic_graph, 1.11)
                 | pynutil.add_weight(fraction_graph, 1.1)
                 | pynutil.add_weight(math_graph, 1.1)
+                | pynutil.add_weight(scientific_graph, 1.08)
+                | pynutil.add_weight(power_graph, 1.09)
                 | pynutil.add_weight(range_graph, 1.1)
                 | pynutil.add_weight(serial_graph, 1.12)  # should be higher than the rest of the classes
                 | pynutil.add_weight(graph_range_money, 1.1)
@@ -249,8 +266,34 @@ class ClassifyFst(GraphFst):
             graph = delete_space + graph + delete_space
             graph = pynini.union(graph, punct)
 
+            # Bring Punjabi tokenization in line with Hindi fixes for glued math/symbol forms.
+            hi_block = pynini.union(*[chr(i) for i in range(0x0900, 0x0980)]).optimize()
+            left_ctx = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT).optimize()
+            right_ctx = hi_block
+            joiner_hyphen_to_space = pynini.cdrewrite(pynini.cross("-", " "), left_ctx, right_ctx, NEMO_SIGMA)
+
+            non_digit_left = pynini.difference(
+                NEMO_NOT_SPACE, pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT)
+            ).optimize()
+            digit_right = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT).optimize()
+            equals_to_spaced = pynini.cdrewrite(pynini.cross("=", " = "), non_digit_left, digit_right, NEMO_SIGMA)
+
+            emdash_to_spaced = pynini.cdrewrite(pynini.cross("—", "— "), "", digit_right, NEMO_SIGMA)
+            emdash_joiner_to_space = pynini.cdrewrite(pynini.cross("—", " "), digit_right, hi_block, NEMO_SIGMA)
+
+            math_symbols = pynini.union("√", "∑", "∏", "∫", "∬", "∭", "∮", "∂", "∇").optimize()
+            following_char = pynini.union(NEMO_DIGIT, NEMO_HI_DIGIT, NEMO_ALPHA).optimize()
+            math_symbol_to_spaced = pynini.cdrewrite(pynutil.insert(" "), math_symbols, following_char, NEMO_SIGMA)
+
             start_time = time.time()
-            self.fst = graph.optimize()
+            self.fst = (
+                math_symbol_to_spaced
+                @ emdash_joiner_to_space
+                @ emdash_to_spaced
+                @ equals_to_spaced
+                @ joiner_hyphen_to_space
+                @ graph
+            ).optimize()
             logging.debug(f"final graph optimization: {time.time() - start_time:.2f}s -- {self.fst.num_states()} nodes")
 
             if far_file:

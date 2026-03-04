@@ -44,6 +44,7 @@ from indic_text_normalization.mag.taggers.whitelist import WhiteListFst
 from indic_text_normalization.mag.taggers.word import WordFst
 from indic_text_normalization.mag.taggers.power import PowerFst
 from indic_text_normalization.mag.taggers.scientific import ScientificFst
+from indic_text_normalization.mag.taggers.serial import SerialFst
 
 
 class ClassifyFst(GraphFst):
@@ -123,6 +124,9 @@ class ClassifyFst(GraphFst):
             measure = MeasureFst(cardinal=cardinal, decimal=decimal)
             measure_graph = measure.fst
 
+            serial = SerialFst(cardinal=cardinal, ordinal=ordinal, deterministic=deterministic)
+            serial_graph = serial.fst
+
             whitelist_graph = WhiteListFst(
                 input_case=input_case, deterministic=deterministic, input_file=whitelist
             ).fst
@@ -144,6 +148,7 @@ class ClassifyFst(GraphFst):
                 | pynutil.add_weight(money_graph, 1.1)
                 | pynutil.add_weight(math_graph, 1.15)  # Math expressions after cardinals
                 | pynutil.add_weight(ordinal_graph, 1.1)
+                | pynutil.add_weight(serial_graph, 1.12)
             )
 
             word_graph = WordFst(punctuation=punctuation, deterministic=deterministic).fst

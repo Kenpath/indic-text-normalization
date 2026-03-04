@@ -67,6 +67,7 @@ class MathFst(GraphFst):
         
         # Combined number graph
         number_graph = hindi_number_graph | arabic_number_graph
+        operand_graph = number_graph
 
         # Optional space around operators
         optional_space = pynini.closure(NEMO_SPACE, 0, 1)
@@ -80,7 +81,7 @@ class MathFst(GraphFst):
         # Pattern: number [space] operator [space] number
         math_expression = (
             pynutil.insert("left: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("operator: \"")
@@ -88,7 +89,7 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("right: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
         )
 
@@ -96,7 +97,7 @@ class MathFst(GraphFst):
         # This handles cases like "1+2+3"
         extended_math = (
             pynutil.insert("left: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("operator: \"")
@@ -104,7 +105,7 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("middle: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("operator2: \"")
@@ -112,7 +113,7 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("right: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
         )
 
@@ -126,7 +127,7 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
             + delimiter
             + pynutil.insert("right: \"")
-            + number_graph
+            + operand_graph
             + pynutil.insert("\"")
         )
 
@@ -157,7 +158,52 @@ class MathFst(GraphFst):
             + pynutil.insert("\"")
         )
 
-        final_graph = math_expression | extended_math | operator_number | number_operator | standalone_operator
+        tight = pynutil.insert("")
+        math_expression_tight_minus_equals = (
+            pynutil.insert("left: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "से")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("middle: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator2: \"")
+            + pynini.cross("=", "बराबर")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("right: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+        )
+
+        math_expression_tight_minus_text = (
+            pynutil.insert("left: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("operator: \"")
+            + pynini.cross("-", "से")
+            + pynutil.insert("\"")
+            + tight
+            + pynutil.insert("right: \"")
+            + operand_graph
+            + pynutil.insert("\"")
+        )
+
+        final_graph = (
+            pynutil.add_weight(math_expression_tight_minus_equals, -0.2)
+            | pynutil.add_weight(math_expression_tight_minus_text, -0.15)
+            | math_expression
+            | extended_math
+            | operator_number
+            | number_operator
+            | standalone_operator
+        )
         final_graph = self.add_tokens(final_graph)
         self.fst = final_graph.optimize()
 

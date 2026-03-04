@@ -50,6 +50,27 @@ TO_LOWER = pynini.union(*[pynini.cross(x, y) for x, y in zip(string.ascii_upperc
 TO_UPPER = pynini.invert(TO_LOWER)
 NEMO_SIGMA = pynini.closure(NEMO_CHAR)
 
+# Superscript support (used by power/scientific taggers)
+NEMO_SUPERSCRIPT_DIGIT = pynini.union("⁰", "¹", "²", "³", "⁴", "⁵", "⁶", "⁷", "⁸", "⁹").optimize()
+NEMO_SUPERSCRIPT_MINUS = "⁻"
+NEMO_SUPERSCRIPT_PLUS = "⁺"
+
+superscript_to_digit = pynini.string_map(
+    [
+        ("⁰", "0"),
+        ("¹", "1"),
+        ("²", "2"),
+        ("³", "3"),
+        ("⁴", "4"),
+        ("⁵", "5"),
+        ("⁶", "6"),
+        ("⁷", "7"),
+        ("⁸", "8"),
+        ("⁹", "9"),
+    ]
+).optimize()
+superscript_to_sign = pynini.string_map([("⁻", "-"), ("⁺", "+")]).optimize()
+
 
 delete_space = pynutil.delete(pynini.closure(NEMO_WHITE_SPACE))
 delete_zero_or_one_space = pynutil.delete(pynini.closure(NEMO_WHITE_SPACE, 0, 1))

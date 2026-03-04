@@ -25,6 +25,22 @@ arabic_to_hindi_digit = pynini.string_map([
 ]).optimize()
 arabic_to_hindi_number = pynini.closure(arabic_to_hindi_digit).optimize()
 
+# Comma-handling helpers for Indian + strict international styles.
+any_digit = pynini.union(NEMO_DIGIT, pynini.union("०", "१", "२", "३", "४", "५", "६", "७", "८", "९")).optimize()
+delete_commas = (
+    any_digit + pynini.closure(pynini.closure(pynutil.delete(","), 0, 1) + any_digit)
+).optimize()
+
+comma = pynini.accep(",")
+three_digits = any_digit + any_digit + any_digit
+group_of_three = comma + three_digits
+international_comma_pattern = (pynini.closure(any_digit, 1, 3) + pynini.closure(group_of_three, 1)).optimize()
+indian_comma_pattern = (
+    pynini.closure(any_digit, 1, 2)
+    + pynini.closure(comma + any_digit + any_digit, 1)
+    + pynini.closure(comma + three_digits, 0, 1)
+).optimize()
+
 
 class CardinalFst(GraphFst):
     """
@@ -338,12 +354,107 @@ class CardinalFst(GraphFst):
             | graph_leading_zero
         ).optimize()
 
+        # Strict international comma handling for X,YYY / X,YYY,ZZZ / ...
+        hi_1_3 = pynini.closure(pynini.union("०", "१", "२", "३", "४", "५", "६", "७", "८", "९"), 1, 3)
+        ar_1_3 = pynini.closure(NEMO_DIGIT, 1, 3)
+        hi_3 = pynini.union("०", "१", "२", "३", "४", "५", "६", "७", "८", "९") ** 3
+        ar_3 = NEMO_DIGIT + NEMO_DIGIT + NEMO_DIGIT
+        hi_3_nonzero = pynini.difference(hi_3, pynini.accep("०००")).optimize()
+        ar_3_nonzero = pynini.difference(ar_3, pynini.accep("000")).optimize()
+
+        up_to_999 = (graph_hundreds | teens_and_ties | digit | zero).optimize()
+        leading_zero_strip = pynini.closure(pynutil.delete("०"), 0, 2)
+
+        group_1_3 = (
+            pynini.compose(hi_1_3, hindi_final_graph)
+            | pynini.compose(ar_1_3, arabic_to_hindi_number @ hindi_final_graph)
+        ).optimize()
+        group_3 = (
+            pynini.compose(hi_3, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3, arabic_to_hindi_number @ (leading_zero_strip + up_to_999))
+        ).optimize()
+        group_3_nonzero = (
+            pynini.compose(hi_3_nonzero, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3_nonzero, arabic_to_hindi_number @ (leading_zero_strip + up_to_999))
+        ).optimize()
+
+        delete_comma = pynutil.delete(",")
+        intl_thousand = (group_1_3 + delete_comma + pynutil.insert(" हज़ार ") + group_3).optimize()
+        intl_thousand_zero_tail = (
+            group_1_3 + delete_comma + pynutil.insert(" हज़ार") + pynutil.delete(pynini.union("०००", "000"))
+        ).optimize()
+        intl_million = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" मिलियन ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" हज़ार ")
+            + group_3
+        ).optimize()
+        intl_million_zero_thousand = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" मिलियन ")
+            + pynutil.delete(pynini.union("०००", "000"))
+            + delete_comma
+            + group_3
+        ).optimize()
+        intl_billion = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" बिलियन ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" मिलियन ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" हज़ार ")
+            + group_3
+        ).optimize()
+        intl_trillion = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" ट्रिलियन ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" बिलियन ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" मिलियन ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" हज़ार ")
+            + group_3
+        ).optimize()
+        strict_intl_with_commas = (
+            pynutil.add_weight(intl_million_zero_thousand, -0.1)
+            | pynutil.add_weight(intl_thousand_zero_tail, -0.1)
+            | intl_trillion
+            | intl_billion
+            | intl_million
+            | intl_thousand
+        ).optimize()
+
+        # Indian comma styles stay default (e.g. 45,000 / 2,33,342).
+        hindi_indian_with_commas = pynini.compose(indian_comma_pattern, delete_commas) @ hindi_final_graph
+        arabic_indian_with_commas = (
+            pynini.compose(indian_comma_pattern, delete_commas) @ arabic_to_hindi_number @ hindi_final_graph
+        )
+
         # Arabic digits: convert to Hindi, then apply the same graph
         arabic_digit_input = pynini.closure(NEMO_DIGIT, 1)
         arabic_final_graph = pynini.compose(arabic_digit_input, arabic_to_hindi_number @ hindi_final_graph).optimize()
 
-        # Combine both Hindi and Arabic digit paths
-        final_graph = hindi_final_graph | arabic_final_graph
+        hindi_final_with_commas = (
+            pynutil.add_weight(strict_intl_with_commas | hindi_indian_with_commas, -0.1) | hindi_final_graph
+        )
+        arabic_final_with_commas = (
+            pynutil.add_weight(strict_intl_with_commas | arabic_indian_with_commas, -0.1) | arabic_final_graph
+        )
+
+        # Combine both Hindi and Arabic digit paths (with comma support)
+        final_graph = hindi_final_with_commas | arabic_final_with_commas
 
         optional_minus_graph = pynini.closure(pynutil.insert("negative: ") + pynini.cross("-", "\"true\" "), 0, 1)
 

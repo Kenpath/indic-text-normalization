@@ -17,20 +17,11 @@ from pynini.lib import pynutil
 
 from indic_text_normalization.mag.graph_utils import (
     GraphFst,
-    NEMO_DIGIT,
-    NEMO_MAG_DIGIT,
     insert_space,
 )
 from indic_text_normalization.mag.utils import get_abs_path
 
 currency_graph = pynini.string_file(get_abs_path("data/money/currency.tsv"))
-
-# Convert Arabic digits (0-9) to Magadhi digits (०-९)
-arabic_to_magadhi_digit = pynini.string_map([
-    ("0", "०"), ("1", "१"), ("2", "२"), ("3", "३"), ("4", "४"),
-    ("5", "५"), ("6", "६"), ("7", "७"), ("8", "८"), ("9", "९")
-]).optimize()
-arabic_to_magadhi_number = pynini.closure(arabic_to_magadhi_digit).optimize()
 
 
 class MoneyFst(GraphFst):
@@ -47,6 +38,7 @@ class MoneyFst(GraphFst):
         super().__init__(name="money", kind="classify")
 
         cardinal_graph = cardinal.final_graph
+        cardinal_with_commas = cardinal_graph
 
         optional_graph_negative = pynini.closure(
             pynutil.insert("negative: ") + pynini.cross("-", "\"true\"") + insert_space,
@@ -55,33 +47,64 @@ class MoneyFst(GraphFst):
         )
         currency_major = pynutil.insert('currency_maj: "') + currency_graph + pynutil.insert('"')
         
-        # Accept both Magadhi digits and Arabic digits (convert Arabic to Magadhi)
-        magadhi_digit_number = pynini.closure(NEMO_MAG_DIGIT, 1).optimize()
-        arabic_digit_number = pynini.closure(NEMO_DIGIT, 1).optimize()
-        # Convert Arabic digits to Magadhi digits, then compose with cardinal_graph
-        arabic_to_cardinal = pynini.compose(arabic_digit_number, arabic_to_magadhi_number @ cardinal_graph).optimize()
-        # Magadhi digits go directly to cardinal_graph
-        magadhi_to_cardinal = pynini.compose(magadhi_digit_number, cardinal_graph).optimize()
-        # Combine both paths
-        number_cardinal = arabic_to_cardinal | magadhi_to_cardinal
-        
-        integer = pynutil.insert('integer_part: "') + number_cardinal + pynutil.insert('"')
-        fraction = pynutil.insert('fractional_part: "') + number_cardinal + pynutil.insert('"')
+        optional_space = pynini.closure(pynini.accep(" "), 0, 1)
+        integer = (
+            pynutil.insert('integer_part: "')
+            + (pynutil.add_weight(cardinal_with_commas, -0.1) | cardinal_graph)
+            + pynutil.insert('"')
+        )
+        fraction = (
+            pynutil.insert('fractional_part: "')
+            + (pynutil.add_weight(cardinal_with_commas, -0.1) | cardinal_graph)
+            + pynutil.insert('"')
+        )
         currency_minor = pynutil.insert('currency_min: "') + pynutil.insert("centiles") + pynutil.insert('"')
 
-        graph_major_only = optional_graph_negative + currency_major + insert_space + integer
+        optional_slash_dash = pynini.closure(
+            pynutil.add_weight(pynini.closure(pynini.accep(" "), 0, 1) + pynutil.delete("/-"), -0.1),
+            0,
+            1,
+        )
+
+        graph_major_only = (
+            optional_graph_negative + currency_major + optional_space + insert_space + integer + optional_slash_dash
+        )
         graph_major_and_minor = (
             optional_graph_negative
             + currency_major
+            + optional_space
             + insert_space
             + integer
+            + optional_space
             + pynini.cross(".", " ")
             + fraction
             + insert_space
             + currency_minor
+            + optional_slash_dash
         )
 
-        graph_currencies = graph_major_only | graph_major_and_minor
+        graph_major_only_suffix = (
+            optional_graph_negative + integer + insert_space + optional_space + currency_major + optional_slash_dash
+        )
+        graph_major_and_minor_suffix = (
+            optional_graph_negative
+            + integer
+            + optional_space
+            + pynini.cross(".", " ")
+            + fraction
+            + optional_space
+            + insert_space
+            + currency_minor
+            + insert_space
+            + currency_major
+            + optional_slash_dash
+        )
+
+        graph_currencies = (
+            graph_major_only
+            | graph_major_and_minor
+            | pynutil.add_weight(graph_major_only_suffix | graph_major_and_minor_suffix, 0.5)
+        )
 
         graph = graph_currencies.optimize()
         final_graph = self.add_tokens(graph)

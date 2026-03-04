@@ -12,53 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
 import pynini
 from pynini.examples import plurals
 from pynini.lib import pynutil
 
-from indic_text_normalization.pa.graph_utils import (
+from indic_text_normalization.mag.graph_utils import (
     NEMO_ALPHA,
     NEMO_DIGIT,
-    NEMO_HI_DIGIT,
+    NEMO_MAG_DIGIT,
     NEMO_NOT_SPACE,
     NEMO_SIGMA,
     GraphFst,
     convert_space,
 )
-from indic_text_normalization.pa.taggers.cardinal import arabic_to_hindi_digit
-from indic_text_normalization.pa.utils import get_abs_path, load_labels
+from indic_text_normalization.mag.taggers.cardinal import arabic_to_magadhi_digit
+from indic_text_normalization.mag.utils import get_abs_path, load_labels
 
 
 class SerialFst(GraphFst):
-    """
-    This class is a composite class of two other class instances
-
-    Args:
-        cardinal: tagger
-        ordinal: tagger
-        deterministic: if True will provide a single transduction option,
-        for False multiple transduction are generated (used for audio-based normalization)
-        lm: whether to use for hybrid LM
-    """
-
     def __init__(self, cardinal: GraphFst, ordinal: GraphFst, deterministic: bool = True, lm: bool = False):
         super().__init__(name="integer", kind="classify", deterministic=deterministic)
 
-        """
-        Finite state transducer for classifying serial (handles only cases without delimiters,
-        values with delimiters are handled by default).
-            The serial is a combination of digits, letters and dashes, e.g.:
-            c325b -> tokens { cardinal { integer: "c तीन दो पाँच b" } }
-        """
-        any_digit = NEMO_DIGIT | NEMO_HI_DIGIT
-        single_hindi_digit = pynini.compose(arabic_to_hindi_digit, cardinal.digit | cardinal.zero) | (
+        any_digit = NEMO_DIGIT | NEMO_MAG_DIGIT
+        single_magadhi_digit = pynini.compose(arabic_to_magadhi_digit, cardinal.digit | cardinal.zero) | (
             cardinal.digit | cardinal.zero
         )
-        digit_by_digit = single_hindi_digit + pynini.closure(pynutil.insert(" ") + single_hindi_digit)
+        digit_by_digit = single_magadhi_digit + pynini.closure(pynutil.insert(" ") + single_magadhi_digit)
 
         if deterministic:
-            # For alphanumeric codes (IFSC-like), speak numbers digit-by-digit.
             num_graph = pynini.compose(any_digit ** (1, ...), digit_by_digit).optimize()
             num_graph |= pynini.compose(
                 (pynini.accep("0") | pynini.accep("०")) + pynini.closure(any_digit),
@@ -67,7 +48,6 @@ class SerialFst(GraphFst):
         else:
             num_graph = cardinal.final_graph
 
-        # TODO: "#" doesn't work from the file
         symbols_graph = pynini.string_file(get_abs_path("data/whitelist/abbreviations.tsv")).optimize() | pynini.cross(
             "#", "hash"
         )
@@ -75,13 +55,9 @@ class SerialFst(GraphFst):
 
         if not self.deterministic and not lm:
             num_graph |= cardinal.final_graph
-            # also allow double digits to be pronounced as integer in serial number
-            num_graph |= pynutil.add_weight(
-                NEMO_DIGIT**2 @ cardinal.final_graph, weight=0.0001
-            )
+            num_graph |= pynutil.add_weight(any_digit**2 @ cardinal.final_graph, weight=0.0001)
 
-        # add space between letter and digit/symbol
-        symbols = [x[0] for x in load_labels(get_abs_path("data/whitelist/abbreviations.tsv"))]
+        symbols = [x[0] for x in load_labels(get_abs_path("data/whitelist/abbreviations.tsv")) if len(x) > 0]
         symbols = pynini.union(*symbols)
         digit_symbol = any_digit | symbols
 
@@ -90,7 +66,6 @@ class SerialFst(GraphFst):
             pynini.cdrewrite(pynutil.insert(" "), digit_symbol, NEMO_ALPHA | symbols, NEMO_SIGMA),
         )
 
-        # serial graph with delimiter
         delimiter = pynini.accep("-") | pynini.accep("/") | pynini.accep(" ")
         if not deterministic:
             delimiter |= pynini.cross("-", " dash ") | pynini.cross("/", " slash ")
@@ -108,28 +83,8 @@ class SerialFst(GraphFst):
 
         serial_graph = letter_num + next_alpha_or_num
         serial_graph |= num_letter + next_alpha_or_num
-        # numbers only with 2+ delimiters
-        serial_graph |= (
-            num_graph + delimiter + num_graph + delimiter + num_graph + pynini.closure(delimiter + num_graph)
-        )
-        # 2+ symbols
+        serial_graph |= num_graph + delimiter + num_graph + delimiter + num_graph + pynini.closure(delimiter + num_graph)
         serial_graph |= pynini.compose(NEMO_SIGMA + symbols + NEMO_SIGMA, num_graph + delimiter + num_graph)
-
-        # exclude ordinal numbers from serial options
-        # Note: In Hindi, ordinals use Hindi digits (०-९) while serials use ASCII digits (0-9)
-        # So there's minimal overlap. The exclusion is attempted but skipped if it fails.
-        try:
-            ordinal_input = ordinal_input.rmepsilon()
-            ordinal_input = pynini.determinize(ordinal_input)
-            ordinal_input = pynini.arcmap(ordinal_input, map_type="rmweight")
-            ordinal_input = pynini.project(ordinal.graph, "input")
-            if ordinal_input.num_states() > 0:
-                ordinal_exclusion = pynini.difference(NEMO_SIGMA, ordinal_input)
-                serial_graph = pynini.compose(ordinal_exclusion, serial_graph).optimize()
-        except:
-            # Skip exclusion if difference operation fails (alphabet mismatch)
-            # This is acceptable since Hindi ordinals and serials use different digit systems
-            pass
 
         serial_graph = pynutil.add_weight(serial_graph, 0.0001)
         serial_graph |= (
@@ -137,7 +92,6 @@ class SerialFst(GraphFst):
             + (pynini.cross("^2", " वर्ग") | pynini.cross("^3", " घन")).optimize()
         )
 
-        # at least one serial graph with alpha numeric value and optional additional serial/num/alpha values
         serial_graph = (
             pynini.closure((serial_graph | num_graph | alphas) + delimiter)
             + serial_graph
@@ -146,8 +100,6 @@ class SerialFst(GraphFst):
 
         serial_graph |= pynini.compose(graph_with_space, serial_graph.optimize()).optimize()
         serial_graph = pynini.compose(pynini.closure(NEMO_NOT_SPACE, 2), serial_graph).optimize()
-
-        # this is not to verbolize "/" as "slash" in cases like "import/export"
         serial_graph = pynini.compose(
             pynini.difference(
                 NEMO_SIGMA, pynini.closure(NEMO_ALPHA, 1) + pynini.accep("/") + pynini.closure(NEMO_ALPHA, 1)
@@ -158,4 +110,3 @@ class SerialFst(GraphFst):
         self.graph = serial_graph.optimize()
         graph = pynutil.insert("name: \"") + convert_space(self.graph).optimize() + pynutil.insert("\"")
         self.fst = graph.optimize()
-
