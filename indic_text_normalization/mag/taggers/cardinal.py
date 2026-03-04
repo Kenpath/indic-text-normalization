@@ -356,33 +356,115 @@ class CardinalFst(GraphFst):
             | graph_leading_zero
         ).optimize()
 
-        # Add comma support: allow comma-separated Magadhi digits like "१,००,००१"
-        magadhi_with_commas = pynini.compose(delete_commas, magadhi_final_graph).optimize()
+        # Strict international comma handling (X,YYY / X,YYY,ZZZ / ...)
+        mag_1_3 = pynini.closure(NEMO_MAG_DIGIT, 1, 3)
+        ar_1_3 = pynini.closure(NEMO_DIGIT, 1, 3)
+        mag_3 = NEMO_MAG_DIGIT + NEMO_MAG_DIGIT + NEMO_MAG_DIGIT
+        ar_3 = NEMO_DIGIT + NEMO_DIGIT + NEMO_DIGIT
+        mag_3_nonzero = pynini.difference(mag_3, pynini.accep("०००")).optimize()
+        ar_3_nonzero = pynini.difference(ar_3, pynini.accep("000")).optimize()
 
-        # Short Magadhi inputs (1-6 digits)
+        up_to_999 = (graph_hundreds | teens_and_ties | digit | zero).optimize()
+        leading_zero_strip = pynini.closure(pynutil.delete("०"), 0, 2)
+
+        group_1_3 = (
+            pynini.compose(mag_1_3, magadhi_final_graph)
+            | pynini.compose(ar_1_3, arabic_to_magadhi_number @ magadhi_final_graph)
+        ).optimize()
+        group_3 = (
+            pynini.compose(mag_3, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3, arabic_to_magadhi_number @ (leading_zero_strip + up_to_999))
+        ).optimize()
+        group_3_nonzero = (
+            pynini.compose(mag_3_nonzero, leading_zero_strip + up_to_999)
+            | pynini.compose(ar_3_nonzero, arabic_to_magadhi_number @ (leading_zero_strip + up_to_999))
+        ).optimize()
+
+        delete_comma = pynutil.delete(",")
+        intl_thousand = (group_1_3 + delete_comma + pynutil.insert(" हज़ार ") + group_3).optimize()
+        intl_thousand_zero_tail = (
+            group_1_3 + delete_comma + pynutil.insert(" हज़ार") + pynutil.delete(pynini.union("०००", "000"))
+        ).optimize()
+        intl_million = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" मिलियन ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" हज़ार ")
+            + group_3
+        ).optimize()
+        intl_million_zero_thousand = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" मिलियन ")
+            + pynutil.delete(pynini.union("०००", "000"))
+            + delete_comma
+            + group_3
+        ).optimize()
+        intl_billion = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" बिलियन ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" मिलियन ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" हज़ार ")
+            + group_3
+        ).optimize()
+        intl_trillion = (
+            group_1_3
+            + delete_comma
+            + pynutil.insert(" ट्रिलियन ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" बिलियन ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" मिलियन ")
+            + group_3_nonzero
+            + delete_comma
+            + pynutil.insert(" हज़ार ")
+            + group_3
+        ).optimize()
+        strict_intl_with_commas = (
+            pynutil.add_weight(intl_million_zero_thousand, -0.1)
+            | pynutil.add_weight(intl_thousand_zero_tail, -0.1)
+            | intl_trillion
+            | intl_billion
+            | intl_million
+            | intl_thousand
+        ).optimize()
+
+        # Indian comma formats stay default (e.g., 45,000 / 12,34,234).
+        indian_comma_pattern = (
+            pynini.closure(any_digit, 1, 2)
+            + pynini.closure(pynini.accep(",") + any_digit + any_digit, 1)
+            + pynini.closure(pynini.accep(",") + any_digit + any_digit + any_digit, 0, 1)
+        ).optimize()
+        magadhi_indian_with_commas = pynini.compose(indian_comma_pattern, delete_commas) @ magadhi_final_graph
+        arabic_indian_with_commas = (
+            pynini.compose(indian_comma_pattern, delete_commas) @ arabic_to_magadhi_number @ magadhi_final_graph
+        )
+
+        # Short Magadhi inputs (1-6 digits, no commas)
         magadhi_digit_input_short = pynini.closure(NEMO_MAG_DIGIT, 1, 6)
         magadhi_short_graph = pynini.compose(magadhi_digit_input_short, magadhi_final_graph).optimize()
-
         magadhi_final_combined = (
-            pynutil.add_weight(magadhi_with_commas, -0.1)
+            pynutil.add_weight(strict_intl_with_commas | magadhi_indian_with_commas, -0.1)
             | pynutil.add_weight(magadhi_long_digit_graph, -0.05)
             | magadhi_short_graph
         )
 
         # Arabic digits: convert to Magadhi, then apply the same graph
-        # Arabic digits with commas: delete commas first, then convert/process
-        arabic_with_commas = pynini.compose(
-            delete_commas, arabic_to_magadhi_number @ magadhi_final_graph
-        ).optimize()
-
-        # Regular Arabic digits without commas (short: 1-6 digits)
         arabic_digit_input_short = pynini.closure(NEMO_DIGIT, 1, 6)
         arabic_short_graph = pynini.compose(
             arabic_digit_input_short, arabic_to_magadhi_number @ magadhi_final_graph
         ).optimize()
-
         arabic_final_combined = (
-            pynutil.add_weight(arabic_with_commas, -0.1)
+            pynutil.add_weight(strict_intl_with_commas | arabic_indian_with_commas, -0.1)
             | pynutil.add_weight(arabic_long_digit_graph, -0.05)
             | arabic_short_graph
         )
